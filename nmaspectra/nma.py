@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 #
 
-from scipy.sparse.linalg import LinearOperator
+# A scipy linear operator ( https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.LinearOperator.html )
+# Used in the linalg.eigs method (https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigs.html)
+#from scipy.sparse.linalg import LinearOperator
 
 class model:
     def __init__(self):
@@ -9,20 +11,17 @@ class model:
         self.ds = None
         self.grid = None
 
-        # A scipy linear operator ( https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.LinearOperator.html )
-        # Used in the linalg.eigs method (https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigs.html)
-        # to obtain a subset of eigenmodes
-        self.phiOperator = None # Velocity potential operator
-        self.psiOperator = None # Pseudo-stream-function operator
+        self.ndof = 0
+        self.mask = None
 
-        self.phiModes = None # Neumann Modes
-        self.phiEvals = None # Neumann Mode eigenvalues
-        self.psiModes = None # Dirichlet Modes
-        self.psiEvals = None # Neumann Mode eigenvalues
+        self.eigenmodes = None #
+        self.eigenvalues = None #
 
-
-    def loadGrid(self, dataDir):
-        """Loads in grid from MITgcm metadata files in dataDir"""
+    def loadGrid(self, dataDir, depth=0,x=None,y=None):
+        """Loads in grid from MITgcm metadata files in dataDir
+        and configures masks at given depth"""
+        import numpy as np
+        import numpy.ma as ma
         import xmitgcm
         import xgcm
 
@@ -30,51 +29,29 @@ class model:
                 iters=None,prefix=None,read_grid=True,
                 geometry = "sphericalpolar")
 
+        if x:
+            self.ds = self.ds.sel(XC=slice(x[0],x[1]),XG=slice(x[0],x[1]))
+
+        if y:
+            self.ds = self.ds.sel(YC=slice(y[0],y[1]),YG=slice(y[0],y[1]))
+
         # Create a grid object
         self.grid = xgcm.Grid(self.ds)
 
-        return 0
+        zd = -abs(depth) #ensure that depth is negative value
+        self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze()
+        self.hFacW = self.ds.hFacW.interp(Z=[zd],method="nearest").squeeze()
+        self.hFacS = self.ds.hFacS.interp(Z=[zd],method="nearest").squeeze()
+        self.mask = abs(np.ceil(self.hFacC['hFacC'][:,:])-1.0).to_numpy().astype(int)
 
+        wetcells = abs(self.mask-1.0)
+        self.ndof = wetcells.sum().astype(int)
 
-#    def calculateModes(self, nmodes=10, klev=0):
-#        """Calculates the Neumann and Dirichlet modes with their
-#        associated eigenvalues. The first `nmodes` modes are calculated
-#        using the grid variables at the vertical level `klev`
-#        """
-#
-#        self.calculateNeumannModes( self, nmodes, klev )
-#
-#
-#    def calculateNeumannModes(self, nmodes=10, klev=0):
-#        from scipy.sparse.linalg import LinearOperator
-#        from scipy.sparse.linalg import eigs
-#        import numpy as np
-#    
-#        def dofToIJ( s, model, klev ):
-#        def ijToDOF( s, model, klev ):
-#
-#        def boundaryConditions( s, model, klev ):
-#        def gradS( s, model, klev ):
-#        def divGradS( sx, sy, model, klev ):
-#
-#        def phiOperator( s, model, nmodes, klev ):
-#        """ Defines the Laplacian operator for the Neumann Modes """
-#    
-#            # s comes in DOF format
-#            # >> map to ij format
-#            #
-#
-#            # See https://xgcm.readthedocs.io/en/latest/xgcm-examples/02_mitgcm.html#Divergence
-#            # for quick formulas
-#            # Apply boundary conditions ( homogeneous neumann )
-#
-#            # Calculate grad s
-#
-#            # Calculate div( grad s )
-#
-#            # Map to DOF format, store in As
-#            As = s
-#            return As
-#    
-#        shape = (10,10) # TO DO : get the number of wet points
-#        A = LinearOperator(shape, matvec=lambda x: phiOperator(x, model, nmodes, klev))
+    def setMask(self, mask):
+        """Sets an additional mask by multiplying by the input mask"""
+
+        self.hFacC = self.hFacC*mask
+        self.hFacW = self.hFacW*mask
+        self.hFacS = self.hFacS*mask
+        self.mask = abs(np.ceil(self.hFacC['hFacC'][:,:])-1.0).to_numpy().astype(int)
+
