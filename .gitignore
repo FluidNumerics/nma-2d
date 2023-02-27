@@ -1,4 +1,5 @@
 data/
-pyself.egg-info
+xnma.egg-info
 build
 public
+__pycache__
