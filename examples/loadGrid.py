@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import nmaspectra.nma as nma
+import xnma.nma as nma
 import inspect, os.path
 
 # Get full path to examples/

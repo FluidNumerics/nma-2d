@@ -3,8 +3,8 @@ site_description: Documentation for a python API to compute spectra on regional 
 site_author: Fluid Numerics
 site_dir: public
 site_url: ""
-repo_name: GitHub/fluidnumerics/nmaspectra
-repo_url: https://github.com/fluidnumerics/nmaspectra
+repo_name: GitHub/fluidnumerics/xnma
+repo_url: https://github.com/fluidnumerics/xnma
 edit_uri: edit/main/docs
 
 # Directory where site content is located
