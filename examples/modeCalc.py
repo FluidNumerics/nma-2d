@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import nmaspectra.nma as nma
+import xnma.nma as nma
 import inspect, os.path
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.linalg import eigsh
@@ -17,8 +17,8 @@ def laplacian( s, model ):
 
     # s comes in DOF format
     # >> map to ij format
-    sgrid = ma.array( np.zeros(model.mask.shape), mask = model.mask )
-    sgrid[~sgrid.mask] = s
+    #sgrid = ma.array( np.zeros(model.mask.shape), mask = model.mask )
+    #sgrid[~sgrid.mask] = s
 
     # smodel is defined this way to inherit the properties of hFacC
     # it is a floating point dataset centered on tracer points
@@ -26,7 +26,7 @@ def laplacian( s, model ):
     # We multiply hfacC by 0 to create a null field
     # and add sgrid.data to it to get the values we want
     # associated with tracer points.
-    smodel = model.hFacC*0.0+sgrid.data;
+    model.ds.phi[~model.mask] = s;
 
     # Calculate grad s
     # Homogeneous neumann boundary conditions are applied by 
@@ -36,19 +36,15 @@ def laplacian( s, model ):
     # For the latter case, see 
     #    https://xgcm.readthedocs.io/en/latest/boundary_conditions.html 
     # for more details
-    #u = model.grid.diff(smodel,'X',boundary="extend",to="left")
-    u = model.grid.diff(smodel,'X',boundary="extend")
-    u = u * model.ds.dyG * model.hFacW
-    #v = model.grid.diff(smodel,'Y',boundary="extend",to="left")
-    v = model.grid.diff(smodel,'Y',boundary="extend")
-    v = v * model.ds.dxG * model.hFacS
+    model.ds.u2d = model.grid.diff(model.ds.phi,'X',boundary="extend")*model.ds.dyG*model.hFacW
+    model.ds.v2d = model.grid.diff(model.ds.phi,'Y',boundary="extend")*model.ds.dxG*model.hFacS
 
     # See https://xgcm.readthedocs.io/en/latest/xgcm-examples/02_mitgcm.html#Divergence
-    divUV = (model.grid.diff(u,'X',to="center") + model.grid.diff(v,'Y',to="center"))/model.ds.rA
+    model.ds.l2phi = (model.grid.diff(model.ds.u2d,'X',to="center") + 
+            model.grid.diff(model.ds.v2d,'Y',to="center"))/model.ds.rA
 
     # Map to DOF format, store in As
-    As = ma.array( divUV.to_numpy(), mask = model.mask ).compressed()
-    return As
+    return ma.array( model.ds.l2phi.to_numpy(), mask = model.mask ).compressed()
 
 def invLaplacian( b, model ):
     """ Calculates the inverse of the Laplacian using 
@@ -62,7 +58,6 @@ def invLaplacian( b, model ):
         sys.exit(1)
     return xsol
 
-
 def main():
     # Get full path to examples/
     # From https://stackoverflow.com/questions/2632199/how-do-i-get-the-path-of-the-current-executed-file-in-python
@@ -70,14 +65,21 @@ def main():
     path     = os.path.dirname(os.path.abspath(filename))
     
     model = nma.model()
-    #model.loadGrid(f'{path}/data/',depth=-1000.0,y=[33,37],x=[5,9])
-    model.loadGrid(f'{path}/data/',depth=-1000.0,y=[35,36],x=[7,8])
+    #model.loadGrid(f'{path}/data/',
+    #               chunks={'XC':20,'XG':20,'YC':20,'YG':20},
+    #               depth=-1000.0,y=[35,36],x=[7,8])
+    model.loadGrid(f'{path}/data/',
+                   chunks=(20,20),
+                   depth=-1000.0)
+
     
-    shape = (model.ndof,model.ndof)
-    L = LinearOperator(shape, matvec=lambda x: laplacian(x, model))
-    #Linv = LinearOperator(shape, matvec=lambda b: invLaplacian(b, model))
-    #evals, evecs = eigsh(L, OPinv=Linv, k=2, sigma=0.0, which='SM', tol=1e-7 )
-    evals, evecs = eigsh(L, k=10, tol=1e-7 )
+    print(model.ds)
+    print(model.grid)
+    #shape = (model.ndof,model.ndof)
+#    L = LinearOperator(shape, matvec=lambda x: laplacian(x, model))
+    ##Linv = LinearOperator(shape, matvec=lambda b: invLaplacian(b, model))
+    ##evals, evecs = eigsh(L, OPinv=Linv, k=2, sigma=0.0, which='SM', tol=1e-7 )
+#    evals, evecs = eigsh(L, k=10, tol=1e-7 )
     
     # Plot the last eigenvalue
    # sgrid = ma.array( np.zeros(model.mask.shape), mask = model.mask )
