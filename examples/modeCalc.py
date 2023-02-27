@@ -65,13 +65,9 @@ def main():
     path     = os.path.dirname(os.path.abspath(filename))
     
     model = nma.model()
-    #model.loadGrid(f'{path}/data/',
-    #               chunks={'XC':20,'XG':20,'YC':20,'YG':20},
-    #               depth=-1000.0,y=[35,36],x=[7,8])
     model.loadGrid(f'{path}/data/',
                    chunks=(20,20),
-                   depth=-1000.0)
-
+                   depth=-1000.0,y=[35.0,36.0],x=[7.0,8.0])
     
     print(model.ds)
     print(model.grid)

@@ -39,11 +39,23 @@ class model:
                 chunks=localChunks,geometry=geometry)
 
         if x:
-            self.ds = self.ds.sel(XC=slice(x[0],x[1]),XG=slice(x[0],x[1]))
+            self.ds = self.ds.sel(XC=slice(x[0],x[1]),
+                                  XG=slice(x[0],x[1]))
+
+            if self.ds.XG.shape[0] > self.ds.XC.shape[0]:
+                self.ds = self.ds.sel(XG=slice(x[0],self.ds.XC[-1]))
 
         if y:
-            self.ds = self.ds.sel(YC=slice(y[0],y[1]),YG=slice(y[0],y[1]))
+            self.ds = self.ds.sel(YC=slice(y[0],y[1]),
+                                  YG=slice(y[0],y[1]))
 
+            # Some indexing by slicing returns YG values
+            # surrounding YC values on south and north boundaries
+            # This patch clips the last YG value
+            if self.ds.YG.shape[0] > self.ds.YC.shape[0]:
+                self.ds = self.ds.sel(YG=slice(y[0],self.ds.YC[-1]))
+
+       
         # Create a grid object
         self.grid = xgcm.Grid(self.ds)
 
