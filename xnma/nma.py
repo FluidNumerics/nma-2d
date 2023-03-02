@@ -14,7 +14,7 @@ class model:
         self.ndof = 0
         self.mask = None
 
-        self.eigenmodes = None #
+        self.eigenmodes = None # Defined on vorticicity points
         self.eigenvalues = None #
 
     def loadGrid(self, dataDir, chunks=None, depth=0, x=None, y=None, geometry="sphericalpolar"):
@@ -57,67 +57,65 @@ class model:
 
        
         # Create a grid object
-        self.grid = xgcm.Grid(self.ds)
+        #self.grid = xgcm.Grid(self.ds)
+
+        # Copy data to numpy arrays (for numba acceleration)
+        self.dxc = self.ds.dxC.to_numpy().astype(np.float32)
+        self.dyc = self.ds.dyC.to_numpy().astype(np.float32)
+        self.dxg = self.ds.dxG.to_numpy().astype(np.float32)
+        self.dyg = self.ds.dyG.to_numpy().astype(np.float32)
+        self.raz = self.ds.rAz.to_numpy().astype(np.float32)
 
         zd = -abs(depth) #ensure that depth is negative value
-        self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze()
-        self.hFacW = self.ds.hFacW.interp(Z=[zd],method="nearest").squeeze()
-        self.hFacS = self.ds.hFacS.interp(Z=[zd],method="nearest").squeeze()
-        self.mask = abs(np.ceil(self.hFacC['hFacC'][:,:])-1.0).to_numpy().astype(int)
+        self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
+        ny, nx = self.hFacC.shape
+        self.mask = np.zeros( (ny,nx) )
+        # The mask applies to vorticity points on the
+        # arakawa c-grid (z-points below).
+        #
+        # We have chosen to completely surround
+        # all tracer points in the domain with vorticity points;
+        # This means that valid tracer points are in the 
+        # range (0:nx-2,0:ny-2)
+        #
+        # Vorticity points are in the range (0:nx-1,0:ny-1)
+        # "Ghost points" for the vorticty points are imposed at
+        # (0,:), (nx-1,:), (:,0), (:,ny-1)
+        #
+        #
+        # Additionally, the grid metrics need to be of size (nx+1,ny+1)
+        #
+        # When tracer point t(i,j) is "dry", the four surrounding
+        # vorticity points needs to be marked dry
+        #
+        #   z(i,j+1) ----- z(i+1,j+1)
+        #     |                 |
+        #     |                 |
+        #     |                 |
+        #     |      t(i,j)     |
+        #     |                 |
+        #     |                 |
+        #     |                 |
+        #   z(i,j) -------- z(i+1,j)
+        #
+        # A mask value of 0 corresponds to a wet cell (this cell is not masked)
+        # A mask value of 1 corresponds to a dry cell (this cell is masked)
+        # This helps with working with numpy's masked arrays
+        #
+        #
+        
+        self.mask[:,0] = 1.0
+        self.mask[:,nx-1] = 1.0
+        self.mask[0,:] = 1.0
+        self.mask[ny-1,:] = 1.0
+        for j in range(0,self.hFacC.shape[0]):
+            for i in range(0,self.hFacC.shape[1]):
+                if self.hFacC[j,i] == 0.0:
+
+                    self.mask[j,i] = 1.0
+                    self.mask[j,i+1] = 1.0
+                    self.mask[j+1,i] = 1.0
+                    self.mask[j+1,i+1] = 1.0
 
         wetcells = abs(self.mask-1.0)
         self.ndof = wetcells.sum().astype(int)
-
-        # Create objects for working with neumann and dirichlet modes
-
-        # Neumann mode u
-        self.ds["un2d"]=(['YC', 'XG'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-        # Dirichlet mode u
-        self.ds["ud2d"]=(['YC', 'XG'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-        # Neumann mode v
-        self.ds["vn2d"]=(['YG', 'XC'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-        # Dirichlet mode v
-        self.ds["vd2d"]=(['YG', 'XC'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-        # Neumann mode function
-        self.ds["phi"]=(['YC', 'XC'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-        # Neumann mode function laplacian
-        self.ds["l2phi"]=(['YC', 'XC'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-        # Dirichlet mode function
-        self.ds["psi"]=(['YG', 'XG'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-        # Dirichlet mode function laplacian
-        self.ds["l2psi"]=(['YG', 'XG'],
-                da.zeros_like(self.hFacC,
-                    chunks=chunks))
-
-
-
-
-    def setMask(self, mask):
-        """Sets an additional mask by multiplying by the input mask"""
-
-        self.hFacC = self.hFacC*mask
-        self.hFacW = self.hFacW*mask
-        self.hFacS = self.hFacS*mask
-        self.mask = abs(np.ceil(self.hFacC['hFacC'][:,:])-1.0).to_numpy().astype(int)
-

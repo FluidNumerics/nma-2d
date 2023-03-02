@@ -1,7 +1,7 @@
 """
-nmaspectra
+xnma
 
-Calculate spectra in irregular geometry without aliasing
+Calculate spectra in 2-D irregular geometry
 """
 
 __version__ = "0.0.0"
