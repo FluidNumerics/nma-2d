@@ -69,7 +69,7 @@ class model:
         zd = -abs(depth) #ensure that depth is negative value
         self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
         ny, nx = self.hFacC.shape
-        self.mask = np.zeros( (ny,nx) )
+        self.mask = np.ones( self.hFacC.shape )
         # The mask applies to vorticity points on the
         # arakawa c-grid (z-points below).
         #
@@ -104,18 +104,46 @@ class model:
         #
         #
         
-        self.mask[:,0] = 1.0
-        self.mask[:,nx-1] = 1.0
-        self.mask[0,:] = 1.0
-        self.mask[ny-1,:] = 1.0
-        for j in range(0,self.hFacC.shape[0]):
-            for i in range(0,self.hFacC.shape[1]):
+        self.mask[:,0] = 0.0
+        self.mask[:,nx-1] = 0.0
+        self.mask[0,:] = 0.0
+        self.mask[ny-1,:] = 0.0
+        for j in range(0,ny):
+            for i in range(0,nx):
                 if self.hFacC[j,i] == 0.0:
 
-                    self.mask[j,i] = 1.0
-                    self.mask[j,i+1] = 1.0
-                    self.mask[j+1,i] = 1.0
-                    self.mask[j+1,i+1] = 1.0
+                    self.mask[j,i] = 0.0
+                    self.mask[j,i+1] = 0.0
+                    self.mask[j+1,i] = 0.0
+                    self.mask[j+1,i+1] = 0.0
 
-        wetcells = abs(self.mask-1.0)
+        wetcells = self.mask
         self.ndof = wetcells.sum().astype(int)
+
+    def LapZInv_JacobiSolve(self, s0, b, itermax=1000, tolerance=1e-4):
+        """Performs Jacobi iterations to iteratively solve L s = b,
+        where `L s` is the Laplacian on vorticity points applied to s"""
+        import numpy as np
+        import xnma.kernels as kernels
+
+        sk = s0
+        r0 = kernels.LapZ_Residual(sk, b, 
+                self.mask, self.dxc, self.dyc, 
+                self.dxg, self.dyg, self.raz )
+
+        for k in range(0,itermax):
+            q = b - kernels.LapZ_JacobiLU( sk, self.dxc, 
+                    self.dyc, self.dxg, self.dyg, self.raz )
+
+            sk = kernels.LapZ_JacobiDinv( q, self.dxc, 
+                    self.dyc, self.dxg, self.dyg, self.raz )
+
+            r = kernels.LapZ_Residual(sk, b, 
+                    self.mask, self.dxc, self.dyc, 
+                    self.dxg, self.dyg, self.raz )
+
+            if( r/r0 < tolerance ):
+                break
+
+        return sk
+
