@@ -17,6 +17,76 @@ class model:
         self.eigenmodes = None # Defined on vorticicity points
         self.eigenvalues = None #
 
+    def construct(self,dx=1.0,dy=1.0,nx=500,ny=500):
+        """
+        Constructs a quadrilateral domain with uniform grid
+        spacing. 
+
+        !!! warning
+            This method currently does not populate ds and 
+            grid. Instead, xc, xg, yc, yg are stored as 1d
+            numpy arrays
+        """
+        import numpy as np
+
+        self.dxc = np.ones((ny,nx)).astype(np.float32)*dx
+        self.dxg = np.ones((ny,nx)).astype(np.float32)*dx
+
+        self.dyc = np.ones((ny,nx)).astype(np.float32)*dy
+        self.dyg = np.ones((ny,nx)).astype(np.float32)*dy
+
+        self.raz = np.ones((ny,nx)).astype(np.float32)*dx*dy
+
+        dxl = np.ones((nx)).astype(np.float32)*dx
+        self.xg = dxl.cumsum() - dx 
+        self.xc = self.xg + dx*0.5
+
+        dyl = np.ones((ny)).astype(np.float32)*dy
+        self.yg = dyl.cumsum() - dy 
+        self.yc = self.yg + dy*0.5
+
+        self.mask = np.ones((ny,nx))
+        # The mask applies to vorticity points on the
+        # arakawa c-grid (z-points below).
+        #
+        # We have chosen to completely surround
+        # all tracer points in the domain with vorticity points;
+        # This means that valid tracer points are in the 
+        # range (0:nx-2,0:ny-2)
+        #
+        # Vorticity points are in the range (0:nx-1,0:ny-1)
+        # "Ghost points" for the vorticty points are imposed at
+        # (0,:), (nx-1,:), (:,0), (:,ny-1)
+        #
+        #
+        # Additionally, the grid metrics need to be of size (nx+1,ny+1)
+        #
+        # When tracer point t(i,j) is "dry", the four surrounding
+        # vorticity points needs to be marked dry
+        #
+        #   z(i,j+1) ----- z(i+1,j+1)
+        #     |                 |
+        #     |                 |
+        #     |                 |
+        #     |      t(i,j)     |
+        #     |                 |
+        #     |                 |
+        #     |                 |
+        #   z(i,j) -------- z(i+1,j)
+        #
+        # A mask value of 0 corresponds to a wet cell (this cell is not masked)
+        # A mask value of 1 corresponds to a dry cell (this cell is masked)
+        # This helps with working with numpy's masked arrays
+        #
+        #
+        
+        self.mask[:,0] = 0.0
+        self.mask[:,nx-1] = 0.0
+        self.mask[0,:] = 0.0
+        self.mask[ny-1,:] = 0.0
+        wetcells = self.mask
+        self.ndof = wetcells.sum().astype(int)
+
     def loadGrid(self, dataDir, chunks=None, depth=0, x=None, y=None, geometry="sphericalpolar"):
         """Loads in grid from MITgcm metadata files in dataDir
         and configures masks at given depth"""
@@ -120,30 +190,50 @@ class model:
         wetcells = self.mask
         self.ndof = wetcells.sum().astype(int)
 
-    def LapZInv_JacobiSolve(self, s0, b, itermax=1000, tolerance=1e-4):
+    def LapZInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4):
         """Performs Jacobi iterations to iteratively solve L s = b,
-        where `L s` is the Laplacian on vorticity points applied to s"""
+        where `L s` is the Laplacian on vorticity points applied to s
+        Stopping criteria is when the relative change in the solution is
+        less than the tolerance.
+
+        !!! warning
+            This tolerance is invalid when max(abs(b)) == max(abs(s)) = 0
+        """
         import numpy as np
         import xnma.kernels as kernels
 
-        sk = s0
-        r0 = kernels.LapZ_Residual(sk, b, 
+        if s0:
+           sk = s0
+        else:
+           sk = np.zeros_like( b ) 
+
+        sk = sk*self.mask 
+        r = kernels.LapZ_Residual(sk, b, 
                 self.mask, self.dxc, self.dyc, 
                 self.dxg, self.dyg, self.raz )
 
+
         for k in range(0,itermax):
-            q = b - kernels.LapZ_JacobiLU( sk, self.dxc, 
+
+            ds = kernels.LapZ_JacobiDinv( r, self.dxc, 
                     self.dyc, self.dxg, self.dyg, self.raz )
 
-            sk = kernels.LapZ_JacobiDinv( q, self.dxc, 
-                    self.dyc, self.dxg, self.dyg, self.raz )
+            dsmag = np.max(abs(ds))
+            smag = np.max(abs(sk))
+            if smag < np.finfo(np.float32).eps:
+                smag == np.max(abs(b))
+
+            if( dsmag/smag < tolerance ):
+                print(f"Jacobi method converged in {k} iterations : {dsmag/smag}")
+                break
+
+            # Update the solution
+            sk += ds
 
             r = kernels.LapZ_Residual(sk, b, 
                     self.mask, self.dxc, self.dyc, 
                     self.dxg, self.dyg, self.raz )
 
-            if( r/r0 < tolerance ):
-                break
 
         return sk
 
