@@ -190,6 +190,72 @@ class model:
         wetcells = self.mask
         self.ndof = wetcells.sum().astype(int)
 
+
+    def LapZInv_PCCG(self, b, s0=None, pcitermax=100, pctolerance=1e-2, itermax=1500, tolerance=1e-4):
+        """Uses preconditioned conjugate gradient to solve L s = b,
+        where `L s` is the Laplacian on vorticity points applied to s
+        Stopping criteria is when the relative change in the solution is
+        less than the tolerance.
+
+        The preconditioner is the LapZInv_JacobianSolve method.
+
+        Algorithm taken from pg.51 of 
+        https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf
+
+        """
+        import numpy as np
+        import xnma.kernels as kernels
+
+        if s0:
+           sk = s0
+        else:
+           sk = np.zeros_like( b ) 
+
+        sk = sk*self.mask 
+
+        r = kernels.LapZ_Residual(sk, b, 
+                self.mask, self.dxc, self.dyc, 
+                self.dxg, self.dyg, self.raz )
+
+        d = self.LapZInv_JacobiSolve( r, 
+                itermax=pcitermax, tolerance=pctolerance )
+
+        delta = np.sum(r*d)
+        rmag = np.max(abs(r))
+        r0 = rmag
+
+        for k in range(0,itermax):
+
+            print(f"PCCG (k,r) : ({k},{rmag})")
+            q = kernels.LapZ(d, self.dxc, self.dyc, 
+                    self.dxg, self.dyg, self.raz )*self.mask
+
+            alpha = delta/(np.sum(d*q))
+
+            sk += alpha*d
+            if k % 50 == 0:
+                r = kernels.LapZ_Residual(sk, b, 
+                        self.mask, self.dxc, self.dyc, 
+                        self.dxg, self.dyg, self.raz )
+            else:
+                r -= alpha*q
+
+            x = self.LapZInv_JacobiSolve( r, 
+                    itermax=pcitermax, tolerance=pctolerance )
+        
+            rmag = np.max(abs(r))
+            deltaOld = delta 
+            delta = np.sum(r*x)
+            beta = delta/deltaOld
+            d = x + beta*d
+            if rmag/r0 < tolerance:
+                print(f"Conjugate gradient method converged in {k+1} iterations : {delta}")
+                break
+
+        return sk
+
+
+
     def LapZInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4):
         """Performs Jacobi iterations to iteratively solve L s = b,
         where `L s` is the Laplacian on vorticity points applied to s
@@ -211,7 +277,6 @@ class model:
         r = kernels.LapZ_Residual(sk, b, 
                 self.mask, self.dxc, self.dyc, 
                 self.dxg, self.dyg, self.raz )
-
 
         for k in range(0,itermax):
 
