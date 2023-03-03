@@ -191,7 +191,7 @@ class model:
         self.ndof = wetcells.sum().astype(int)
 
 
-    def LapZInv_PCCG(self, b, s0=None, pcitermax=100, pctolerance=1e-2, itermax=1500, tolerance=1e-4):
+    def LapZInv_PCCG(self, b, s0=None, pcitermax=20, pctolerance=1e-2, itermax=1500, tolerance=1e-4):
         """Uses preconditioned conjugate gradient to solve L s = b,
         where `L s` is the Laplacian on vorticity points applied to s
         Stopping criteria is when the relative change in the solution is
@@ -226,7 +226,7 @@ class model:
 
         for k in range(0,itermax):
 
-            print(f"PCCG (k,r) : ({k},{rmag})")
+#            print(f"PCCG (k,r) : ({k},{rmag})")
             q = kernels.LapZ(d, self.dxc, self.dyc, 
                     self.dxg, self.dyg, self.raz )*self.mask
 
@@ -248,9 +248,11 @@ class model:
             delta = np.sum(r*x)
             beta = delta/deltaOld
             d = x + beta*d
-            if rmag/r0 < tolerance:
-                print(f"Conjugate gradient method converged in {k+1} iterations : {delta}")
+            if rmag/r0 <= tolerance:
                 break
+
+        if rmag/r0 > tolerance:
+           print(f"Conjugate gradient method did not converge in {k+1} iterations : {delta}")
 
         return sk
 
@@ -288,8 +290,8 @@ class model:
             if smag < np.finfo(np.float32).eps:
                 smag == np.max(abs(b))
 
-            if( dsmag/smag < tolerance ):
-                print(f"Jacobi method converged in {k} iterations : {dsmag/smag}")
+            if( dsmag/smag <= tolerance ):
+                #print(f"Jacobi method converged in {k} iterations : {dsmag/smag}")
                 break
 
             # Update the solution
