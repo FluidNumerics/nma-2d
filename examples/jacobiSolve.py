@@ -6,6 +6,7 @@ from xnma import kernels
 import inspect, os.path
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import ma
 import time
 
 
@@ -21,10 +22,6 @@ def main():
     model.construct(dx=1.0,dy=1.0,nx=501,ny=501)
     
     s = np.ones(model.mask.shape,dtype=np.float32)
-
-    ny, nx = s.shape    
-
-    s0 = np.zeros(model.mask.shape,dtype=np.float32)
     b = np.zeros(model.mask.shape,dtype=np.float32)
 
     wx = 2.0*np.pi/model.xg[-1]

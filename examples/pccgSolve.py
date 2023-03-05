@@ -18,7 +18,8 @@ def main():
     
     model = nma.model()
 
-    model.construct(dx=0.5,dy=0.5,nx=1001,ny=1001)
+    #model.construct(dx=0.5,dy=0.5,nx=1001,ny=1001)
+    model.construct(dx=0.5,dy=0.5,nx=11,ny=11)
     
     s = np.ones(model.mask.shape,dtype=np.float32)
 

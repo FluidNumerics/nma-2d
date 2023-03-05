@@ -14,6 +14,9 @@ class model:
         self.ndof = 0
         self.mask = None
 
+        self.b = None
+        self.s = None
+
         self.eigenmodes = None # Defined on vorticicity points
         self.eigenvalues = None #
 
@@ -28,6 +31,7 @@ class model:
             numpy arrays
         """
         import numpy as np
+        from numpy import ma
 
         self.dxc = np.ones((ny,nx)).astype(np.float32)*dx
         self.dxg = np.ones((ny,nx)).astype(np.float32)*dx
@@ -86,6 +90,11 @@ class model:
         self.mask[ny-1,:] = 0.0
         wetcells = self.mask
         self.ndof = wetcells.sum().astype(int)
+
+        # Create template masked arrays
+        self.b = ma.masked_array( np.zeros((ny,nx)), mask=abs(self.mask - 1.0), dtype=np.float32 )
+        self.s = ma.masked_array( np.zeros((ny,nx)), mask=abs(self.mask - 1.0), dtype=np.float32 )
+
 
     def loadGrid(self, dataDir, chunks=None, depth=0, x=None, y=None, geometry="sphericalpolar"):
         """Loads in grid from MITgcm metadata files in dataDir
@@ -226,7 +235,6 @@ class model:
 
         for k in range(0,itermax):
 
-#            print(f"PCCG (k,r) : ({k},{rmag})")
             q = kernels.LapZ(d, self.dxc, self.dyc, 
                     self.dxg, self.dyg, self.raz )*self.mask
 
@@ -303,4 +311,101 @@ class model:
 
 
         return sk
+
+    def laplacian(self, x):
+        """ Wrapper for the Laplacian, where x comes in as a flat 1-D array
+            only at `wet` grid cell locations """
+
+        import numpy as np
+        from numpy import ma
+        import xnma.kernels as kernels
+
+        # x comes in as a 1-D array in "DOF" format
+        # we need to convert it to a 2-D array consistent with the model grid
+        xgrid = ma.masked_array( np.zeros(self.mask.shape), 
+                mask = abs(self.mask - 1.0), dtype=np.float32 )
+        xgrid[~xgrid.mask] = x # Set interior values to b
+
+        # Invert the laplacian
+        Lx = kernels.LapZ(x, self.dxc, self.dyc, 
+                    self.dxg, self.dyg, self.raz )
+
+        # Mask the data, so that we can return a 1-D array of unmasked values
+        return ma.masked_array( Lx, mask = abs(self.mask - 1.0), 
+                dtype=np.float32 ).compressed()
+
+    def laplacianInverse(self, b):
+        """ Wrapper for the Laplacian Inverse (with preconditioned conjugate gradient),
+            where b comes in as a flat 1-D array only at `wet` grid cell locations """
+
+        import numpy as np
+        from numpy import ma
+        import xnma.kernels as kernels
+        import time
+
+        # b comes in as a 1-D array in "DOF" format
+        # we need to convert it to a 2-D array consistent with the model grid
+        # Use the model.b attribute to push the DOF formatted data
+
+        bgrid = ma.masked_array( np.zeros(self.mask.shape),
+                mask = abs(self.mask - 1.0), dtype=np.float32 )
+        bgrid[~bgrid.mask] = b # Set interior values to b
+
+        x = np.ones(self.mask.shape,dtype=np.float32)
+        # Invert the laplacian
+        tic = time.perf_counter()
+        x = self.LapZInv_PCCG(bgrid.data, s0=None, 
+                pcitermax=20, pctolerance=1e-2, itermax=1500,
+                tolerance=1e-11)
+        toc = time.perf_counter()
+        runtime = toc-tic
+        print(f"Laplacian inverse runtime : {runtime:0.4f} s")
+
+        # Mask the data, so that we can return a 1-D array of unmasked values
+        return ma.masked_array( x, mask = abs(self.mask - 1.0), 
+                dtype=np.float32 ).compressed()
+
+    def findEigenmodes( self, nmodes = 10, tolerance=0):
+        """ Finds the eigenmodes using sci-py `eigsh`.
+
+        Parameters
+
+        nmodes - the number of eigenmodes you wish to find
+        sigma  - Eigenmodes with eigenvalues near sigma are returned
+        which  - Identical to the scipy `which` argument
+
+        See scipy/eigsh docs for more details
+
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html
+
+        """
+        from scipy.sparse.linalg import LinearOperator
+        from scipy.sparse.linalg import eigsh
+        import time
+        import numpy as np
+
+        shape = (self.ndof,self.ndof)
+    
+#        L = LinearOperator(shape, matvec=lambda x: self.laplacian(x),dtype=np.float32)
+        Linv = LinearOperator(shape, matvec=lambda b: self.laplacianInverse(b),dtype=np.float32)
+
+        print("Starting eigenvalue search")
+        tic = time.perf_counter()
+        evals, evecs = eigsh(Linv, 
+                             k=nmodes, 
+                             tol=tolerance,
+                             return_eigenvectors=True) 
+        toc = time.perf_counter()
+        runtime = toc-tic
+        print(f"eigsh runtime : {runtime:0.4f} s")
+
+        self.eigenvalues = evals
+        self.eigenmodes = evecs
+
+        #for k in range(0,nmodes):
+
+
+
+
+
 
