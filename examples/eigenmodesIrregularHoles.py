@@ -13,7 +13,7 @@ import numpy.ma as ma
 import sys
 import time
 
-nmodes = 20
+nmodes = 100
 
 def main():
     # Get full path to examples/
@@ -43,8 +43,7 @@ def main():
         # add a new subplot iteratively
         ax = plt.subplot(4, 4, k+1)
     
-        #plt.contourf(model.xg, model.yg, sgrid)
-        plt.pcolor(model.xg, model.yg, sgrid,vmin=-0.05, vmax=0.05)
+        plt.pcolor(model.xg, model.yg, sgrid,vmin=-0.03, vmax=0.03)
         plt.set_cmap("cividis")
         # chart formatting
         ax.set_title(f"e_{ei}")
