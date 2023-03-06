@@ -356,7 +356,7 @@ class model:
         tic = time.perf_counter()
         x = self.LapZInv_PCCG(bgrid.data, s0=None, 
                 pcitermax=20, pctolerance=1e-2, itermax=1500,
-                tolerance=1e-11)
+                tolerance=1e-12)
         toc = time.perf_counter()
         runtime = toc-tic
         print(f"Laplacian inverse runtime : {runtime:0.4f} s")
