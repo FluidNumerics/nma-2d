@@ -1,9 +1,43 @@
 #!/usr/bin/env python
 #
 
-# A scipy linear operator ( https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.LinearOperator.html )
-# Used in the linalg.eigs method (https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigs.html)
-#from scipy.sparse.linalg import LinearOperator
+# Notes
+#
+# Masking
+# -------
+#   The mask applies to vorticity points on the
+#   arakawa c-grid (z-points below).
+#
+#   We have chosen to completely surround
+#   all tracer points in the domain with vorticity points;
+#   This means that valid tracer points are in the 
+#   range (0:nx-2,0:ny-2)
+#
+#   Vorticity points are in the range (0:nx-1,0:ny-1)
+#   "Ghost points" for the vorticty points are imposed at
+#   (0,:), (nx-1,:), (:,0), (:,ny-1)
+#
+#
+#   Additionally, the grid metrics need to be of size (nx+1,ny+1)
+#
+#   When tracer point t(i,j) is "dry", the four surrounding
+#   vorticity points needs to be marked dry
+#
+#     z(i,j+1) ----- z(i+1,j+1)
+#       |                 |
+#       |                 |
+#       |                 |
+#       |      t(i,j)     |
+#       |                 |
+#       |                 |
+#       |                 |
+#     z(i,j) -------- z(i+1,j)
+#
+#   A mask value of 0 corresponds to a wet cell (this cell is not masked)
+#   A mask value of 1 corresponds to a dry cell (this cell is masked)
+#   This helps with working with numpy's masked arrays
+#
+#
 
 class model:
     def __init__(self):
@@ -13,9 +47,6 @@ class model:
 
         self.ndof = 0
         self.mask = None
-
-        self.b = None
-        self.s = None
 
         self.eigenmodes = None # Defined on vorticicity points
         self.eigenvalues = None #
@@ -50,40 +81,6 @@ class model:
         self.yc = self.yg + dy*0.5
 
         self.mask = np.ones((ny,nx))
-        # The mask applies to vorticity points on the
-        # arakawa c-grid (z-points below).
-        #
-        # We have chosen to completely surround
-        # all tracer points in the domain with vorticity points;
-        # This means that valid tracer points are in the 
-        # range (0:nx-2,0:ny-2)
-        #
-        # Vorticity points are in the range (0:nx-1,0:ny-1)
-        # "Ghost points" for the vorticty points are imposed at
-        # (0,:), (nx-1,:), (:,0), (:,ny-1)
-        #
-        #
-        # Additionally, the grid metrics need to be of size (nx+1,ny+1)
-        #
-        # When tracer point t(i,j) is "dry", the four surrounding
-        # vorticity points needs to be marked dry
-        #
-        #   z(i,j+1) ----- z(i+1,j+1)
-        #     |                 |
-        #     |                 |
-        #     |                 |
-        #     |      t(i,j)     |
-        #     |                 |
-        #     |                 |
-        #     |                 |
-        #   z(i,j) -------- z(i+1,j)
-        #
-        # A mask value of 0 corresponds to a wet cell (this cell is not masked)
-        # A mask value of 1 corresponds to a dry cell (this cell is masked)
-        # This helps with working with numpy's masked arrays
-        #
-        #
-        
         self.mask[:,0] = 0.0
         self.mask[:,nx-1] = 0.0
         self.mask[0,:] = 0.0
@@ -96,7 +93,58 @@ class model:
         self.s = ma.masked_array( np.zeros((ny,nx)), mask=abs(self.mask - 1.0), dtype=np.float32 )
 
 
-    def loadGrid(self, dataDir, chunks=None, depth=0, x=None, y=None, geometry="sphericalpolar"):
+    def circularDemo(self,dx=1.0,dy=1.0,nx=500,ny=500):
+        """
+        Constructs a quadrilateral domain with uniform grid
+        spacing. An additional mask is applied to create
+        a domain with circular geometry.
+
+        !!! warning
+            This method currently does not populate ds and 
+            grid. Instead, xc, xg, yc, yg are stored as 1d
+            numpy arrays
+        """
+        import numpy as np
+        from numpy import ma
+
+        self.dxc = np.ones((ny,nx)).astype(np.float32)*dx
+        self.dxg = np.ones((ny,nx)).astype(np.float32)*dx
+
+        self.dyc = np.ones((ny,nx)).astype(np.float32)*dy
+        self.dyg = np.ones((ny,nx)).astype(np.float32)*dy
+
+        self.raz = np.ones((ny,nx)).astype(np.float32)*dx*dy
+
+        dxl = np.ones((nx)).astype(np.float32)*dx
+        self.xg = dxl.cumsum() - dx 
+        self.xc = self.xg + dx*0.5
+
+        dyl = np.ones((ny)).astype(np.float32)*dy
+        self.yg = dyl.cumsum() - dy 
+        self.yc = self.yg + dy*0.5
+
+        self.mask = np.ones((ny,nx))
+        self.mask[:,0] = 0.0
+        self.mask[:,nx-1] = 0.0
+        self.mask[0,:] = 0.0
+        self.mask[ny-1,:] = 0.0
+
+        xc = self.xg[-1]*0.5
+        yc = self.yg[-1]*0.5
+        for j in range(0,ny):
+            y = self.yg[j]
+            for i in range(0,nx):
+                x = self.xg[i]
+                r = np.sqrt( (x-xc)**2 + (y-yc)**2 )
+
+                if r >= 0.9*xc :
+                    self.mask[j,i] = 0.0
+
+
+        self.ndof = self.mask.sum().astype(int)
+
+
+    def loadGrid(self, dataDir, chunks=None, depth=0, x=None, y=None, iters=None, geometry="sphericalpolar"):
         """Loads in grid from MITgcm metadata files in dataDir
         and configures masks at given depth"""
         import numpy as np
@@ -107,6 +155,8 @@ class model:
 
         localChunks = None
 
+        self.depth = depth
+
         if chunks:
             localChunks = {'XC':chunks[0],
                            'XG':chunks[0],
@@ -114,7 +164,7 @@ class model:
                            'YG':chunks[1]}
 
         self.ds = xmitgcm.open_mdsdataset(dataDir,
-                iters=None,prefix=None,read_grid=True,
+                iters=iters,prefix=['U','V'],read_grid=True,
                 chunks=localChunks,geometry=geometry)
 
         if x:
@@ -134,7 +184,6 @@ class model:
             if self.ds.YG.shape[0] > self.ds.YC.shape[0]:
                 self.ds = self.ds.sel(YG=slice(y[0],self.ds.YC[-1]))
 
-       
         # Create a grid object
         #self.grid = xgcm.Grid(self.ds)
 
@@ -145,48 +194,16 @@ class model:
         self.dyg = self.ds.dyG.to_numpy().astype(np.float32)
         self.raz = self.ds.rAz.to_numpy().astype(np.float32)
 
+
         zd = -abs(depth) #ensure that depth is negative value
         self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
         ny, nx = self.hFacC.shape
         self.mask = np.ones( self.hFacC.shape )
-        # The mask applies to vorticity points on the
-        # arakawa c-grid (z-points below).
-        #
-        # We have chosen to completely surround
-        # all tracer points in the domain with vorticity points;
-        # This means that valid tracer points are in the 
-        # range (0:nx-2,0:ny-2)
-        #
-        # Vorticity points are in the range (0:nx-1,0:ny-1)
-        # "Ghost points" for the vorticty points are imposed at
-        # (0,:), (nx-1,:), (:,0), (:,ny-1)
-        #
-        #
-        # Additionally, the grid metrics need to be of size (nx+1,ny+1)
-        #
-        # When tracer point t(i,j) is "dry", the four surrounding
-        # vorticity points needs to be marked dry
-        #
-        #   z(i,j+1) ----- z(i+1,j+1)
-        #     |                 |
-        #     |                 |
-        #     |                 |
-        #     |      t(i,j)     |
-        #     |                 |
-        #     |                 |
-        #     |                 |
-        #   z(i,j) -------- z(i+1,j)
-        #
-        # A mask value of 0 corresponds to a wet cell (this cell is not masked)
-        # A mask value of 1 corresponds to a dry cell (this cell is masked)
-        # This helps with working with numpy's masked arrays
-        #
-        #
-        
         self.mask[:,0] = 0.0
         self.mask[:,nx-1] = 0.0
         self.mask[0,:] = 0.0
         self.mask[ny-1,:] = 0.0
+
         for j in range(0,ny):
             for i in range(0,nx):
                 if self.hFacC[j,i] == 0.0:
