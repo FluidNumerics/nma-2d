@@ -7,23 +7,23 @@
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
 <meta content="Documentation for a python API to compute spectra on regional fluid simulation data" name="description"/>
 <meta content="Fluid Numerics" name="author"/>
-<link href="assets/images/favicon.png" rel="icon"/>
+<link href="../../assets/images/favicon.png" rel="icon"/>
 <meta content="mkdocs-1.4.0, mkdocs-material-8.5.3" name="generator"/>
-<title>Normal Mode Analysis for Spectra</title>
-<link href="assets/stylesheets/main.7a952b86.min.css" rel="stylesheet"/>
-<link href="assets/stylesheets/palette.cbb835fc.min.css" rel="stylesheet"/>
+<title>Irregular Holes - Normal Mode Analysis for Spectra</title>
+<link href="../../assets/stylesheets/main.7a952b86.min.css" rel="stylesheet"/>
+<link href="../../assets/stylesheets/palette.cbb835fc.min.css" rel="stylesheet"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
 <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-<script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
-<link href="assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>html.glightbox-open { overflow: initial; height: 100%; }</style><script src="assets/javascripts/glightbox.min.js"></script></head>
+<script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+<link href="../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>html.glightbox-open { overflow: initial; height: 100%; }</style><script src="../../assets/javascripts/glightbox.min.js"></script></head>
 <body data-md-color-accent="cyan" data-md-color-primary="black" data-md-color-scheme="slate" dir="ltr">
 <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
 <input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
 <input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
 <label class="md-overlay" for="__drawer"></label>
 <div data-md-component="skip">
-<a class="md-skip" href="#normal-mode-analysis-spectra">
+<a class="md-skip" href="#irregular-holes">
           Skip to content
         </a>
 </div>
@@ -31,8 +31,8 @@
 </div>
 <header class="md-header" data-md-component="header">
 <nav aria-label="Header" class="md-header__inner md-grid">
-<a aria-label="Normal Mode Analysis for Spectra" class="md-header__button md-logo" data-md-component="logo" href="." title="Normal Mode Analysis for Spectra">
-<img alt="logo" src="assets/images/logo-fluid-numerics.png"/>
+<a aria-label="Normal Mode Analysis for Spectra" class="md-header__button md-logo" data-md-component="logo" href="../.." title="Normal Mode Analysis for Spectra">
+<img alt="logo" src="../../assets/images/logo-fluid-numerics.png"/>
 </a>
 <label class="md-header__button md-icon" for="__drawer">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"></path></svg>
@@ -47,7 +47,7 @@
 <div class="md-header__topic" data-md-component="header-topic">
 <span class="md-ellipsis">
             
-              Home
+              Irregular Holes
             
           </span>
 </div>
@@ -83,8 +83,8 @@
 <div class="md-sidebar__inner">
 <nav aria-label="Navigation" class="md-nav md-nav--primary" data-md-level="0">
 <label class="md-nav__title" for="__drawer">
-<a aria-label="Normal Mode Analysis for Spectra" class="md-nav__button md-logo" data-md-component="logo" href="." title="Normal Mode Analysis for Spectra">
-<img alt="logo" src="assets/images/logo-fluid-numerics.png"/>
+<a aria-label="Normal Mode Analysis for Spectra" class="md-nav__button md-logo" data-md-component="logo" href="../.." title="Normal Mode Analysis for Spectra">
+<img alt="logo" src="../../assets/images/logo-fluid-numerics.png"/>
 </a>
     Normal Mode Analysis for Spectra
   </label>
@@ -99,14 +99,13 @@
 </a>
 </div>
 <ul class="md-nav__list" data-md-scrollfix="">
-<li class="md-nav__item md-nav__item--active">
-<input class="md-nav__toggle md-toggle" data-md-toggle="toc" id="__toc" type="checkbox"/>
-<a class="md-nav__link md-nav__link--active" href=".">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../..">
         Home
       </a>
 </li>
-<li class="md-nav__item md-nav__item--nested">
-<input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" id="__nav_2" type="checkbox"/>
+<li class="md-nav__item md-nav__item--active md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" id="__nav_2" type="checkbox"/>
 <label class="md-nav__link" for="__nav_2">
           Getting Started
           <span class="md-nav__icon md-icon"></span>
@@ -118,17 +117,17 @@
         </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="GettingStarted/QuickStart/">
+<a class="md-nav__link" href="../QuickStart/">
         Quick Start
       </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="GettingStarted/Installation/">
+<a class="md-nav__link" href="../Installation/">
         Installation
       </a>
 </li>
-<li class="md-nav__item md-nav__item--nested">
-<input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_3" id="__nav_2_3" type="checkbox"/>
+<li class="md-nav__item md-nav__item--active md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_3" id="__nav_2_3" type="checkbox"/>
 <label class="md-nav__link" for="__nav_2_3">
           Examples
           <span class="md-nav__icon md-icon"></span>
@@ -139,8 +138,9 @@
           Examples
         </label>
 <ul class="md-nav__list" data-md-scrollfix="">
-<li class="md-nav__item">
-<a class="md-nav__link" href="GettingStarted/IrregularHoles/">
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" data-md-toggle="toc" id="__toc" type="checkbox"/>
+<a class="md-nav__link md-nav__link--active" href="./">
         Irregular Holes
       </a>
 </li>
@@ -163,7 +163,7 @@
         </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="Theory/Derivation/">
+<a class="md-nav__link" href="../../Theory/Derivation/">
         Derivation of Normal Mode Analysis
       </a>
 </li>
@@ -183,12 +183,12 @@
         </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="About/ReleaseNotes/">
+<a class="md-nav__link" href="../../About/ReleaseNotes/">
         Release Notes
       </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="About/RoadMap/">
+<a class="md-nav__link" href="../../About/RoadMap/">
         Road Map
       </a>
 </li>
@@ -210,27 +210,65 @@
 </div>
 <div class="md-content" data-md-component="content">
 <article class="md-content__inner md-typeset">
-<a class="md-content__button md-icon" href="https://github.com/fluidnumerics/xnma/edit/main/docs/index.md" title="Edit this page">
+<a class="md-content__button md-icon" href="https://github.com/fluidnumerics/xnma/edit/main/docs/GettingStarted/IrregularHoles.md" title="Edit this page">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"></path></svg>
 </a>
-<h1 id="normal-mode-analysis-spectra">Normal Mode Analysis Spectra</h1>
-<div class="admonition note">
-<p><center><strong>Friends don't let friends use Fourier analysis</strong></center></p>
-</div>
-<p>Calculate spectra of 2-D fluids in irregular geometry.</p>
+<h1 id="irregular-holes">Irregular Holes</h1>
+<p>In this example, we look at a domain that has holes placed throughout, to demonstrate how the <code>xnma</code> methodology handles irregular geometry. Specifically, we look at the basis functions that result from finding the eigenpairs with the smallest eigenvalues (largest length scales). This example can be found in <a href="https://github.com/FluidNumerics/xnma/blob/main/examples/eigenmodesIrregularHoles.py">examples/eigenmodesIrregularHoles.py</a></p>
+<figure>
+<p><center>
+<a class="glightbox" href="../../graphics/holes.png"><img alt="Model Domain" src="../../graphics/holes.png" width="250"/></a>
+</center></p>
+<figcaption>Figure 1 : A schematic of the "irregular holes" domain. The gray regions indicate dry grid cells, and black lines denote the domain boundaries.</figcaption>
+<p></p>
+</figure>
+<p>A sketch of the model domain is shown above. The model is initialized and configured for this demo using the <code>irregularHolesDemo</code> method</p>
+<pre><code class="language-python">
+from xnma import nma
+
+model = nma.model()
+model.irregularHolesDemo(dx=0.5,dy=0.5,nx=101,ny=101)
+</code></pre>
+<p>We use 101 xg points and 101 yg points, giving 100x100 tracer cells in an Arakawa C-grid. Each grid cell has a grid spacing of 0.5 units, giving a domain dimensions of 50x50 units. The <code>irregularHolesDemo</code> method constructs a domain similar to what is shown in Figure 1.</p>
+<p>We use the default settings of the <code>findEigenmodes</code> method, which uses the Implicitly Restarted Arnoldi Method (<a href=""><code>eigsh</code></a>) to find the 100 eigenpairs with the largest eigenvalues of the inverse of the Laplacian; this gives the 100 smallest eigenvalues (largest length scale modes) of the Laplacian.</p>
+<pre><code>model.findEigenmodes( nmodes = 100 )
+</code></pre>
+<p>A few of the eigenmodes are shown below</p>
+<figure>
+<p><center>
+<a class="glightbox" href="../../graphics/holes_e3e18.png"><img alt="Eigenmodes 3 through 18" src="../../graphics/holes_e3e18.png" width="400"/></a>
+<a class="glightbox" href="../../graphics/holes_e33e48.png"><img alt="Eigenmodes 33 through 48" src="../../graphics/holes_e33e48.png" width="400"/></a>
+<a class="glightbox" href="../../graphics/holes_e83e98.png"><img alt="Eigenmodes 83 through 98" src="../../graphics/holes_e83e98.png" width="400"/></a>
+</center></p>
+<figcaption>Figure 2 : A few of the eigenmodes are shown here, ordered by the length scales (greatest to least).</figcaption>
+<p></p>
+</figure>
 </article>
 </div>
 </div>
 </main>
 <footer class="md-footer">
 <nav aria-label="Footer" class="md-footer__inner md-grid">
-<a aria-label="Next: Quick Start" class="md-footer__link md-footer__link--next" href="GettingStarted/QuickStart/" rel="next">
+<a aria-label="Previous: Installation" class="md-footer__link md-footer__link--prev" href="../Installation/" rel="prev">
+<div class="md-footer__button md-icon">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"></path></svg>
+</div>
+<div class="md-footer__title">
+<div class="md-ellipsis">
+<span class="md-footer__direction">
+                Previous
+              </span>
+              Installation
+            </div>
+</div>
+</a>
+<a aria-label="Next: Derivation of Normal Mode Analysis" class="md-footer__link md-footer__link--next" href="../../Theory/Derivation/" rel="next">
 <div class="md-footer__title">
 <div class="md-ellipsis">
 <span class="md-footer__direction">
                 Next
               </span>
-              Quick Start
+              Derivation of Normal Mode Analysis
             </div>
 </div>
 <div class="md-footer__button md-icon">
@@ -255,9 +293,9 @@
 <div class="md-dialog" data-md-component="dialog">
 <div class="md-dialog__inner md-typeset"></div>
 </div>
-<script id="__config" type="application/json">{"base": ".", "features": [], "search": "assets/javascripts/workers/search.5bf1dace.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
-<script src="assets/javascripts/bundle.37e9125f.min.js"></script>
-<script src="javascripts/mathjax.js"></script>
+<script id="__config" type="application/json">{"base": "../..", "features": [], "search": "../../assets/javascripts/workers/search.5bf1dace.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+<script src="../../assets/javascripts/bundle.37e9125f.min.js"></script>
+<script src="../../javascripts/mathjax.js"></script>
 <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 <script>document$.subscribe(() => {const lightbox = GLightbox({"touchNavigation": true, "loop": false, "width": "100%", "height": "auto", "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom"});})</script></body>
