@@ -16,6 +16,8 @@ nav:
   - Getting Started:
     - Quick Start: GettingStarted/QuickStart.md
     - Installation: GettingStarted/Installation.md
+    - Examples:
+      - Irregular Holes: GettingStarted/IrregularHoles.md
   - Theory:
     - Derivation of Normal Mode Analysis: Theory/Derivation.md
   - About:
