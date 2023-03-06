@@ -92,7 +92,6 @@ class model:
         self.b = ma.masked_array( np.zeros((ny,nx)), mask=abs(self.mask - 1.0), dtype=np.float32 )
         self.s = ma.masked_array( np.zeros((ny,nx)), mask=abs(self.mask - 1.0), dtype=np.float32 )
 
-
     def circularDemo(self,dx=1.0,dy=1.0,nx=500,ny=500):
         """
         Constructs a quadrilateral domain with uniform grid
@@ -143,6 +142,72 @@ class model:
 
         self.ndof = self.mask.sum().astype(int)
 
+    def irregularHolesDemo(self,dx=1.0,dy=1.0,nx=500,ny=500):
+        """
+        Constructs a quadrilateral domain with uniform grid
+        spacing. An additional mask is applied to create
+        a domain with irregular boundaries and oddly placed
+        holes.
+
+        !!! warning
+            This method currently does not populate ds and 
+            grid. Instead, xc, xg, yc, yg are stored as 1d
+            numpy arrays
+        """
+        import numpy as np
+        from numpy import ma
+
+        self.dxc = np.ones((ny,nx)).astype(np.float32)*dx
+        self.dxg = np.ones((ny,nx)).astype(np.float32)*dx
+
+        self.dyc = np.ones((ny,nx)).astype(np.float32)*dy
+        self.dyg = np.ones((ny,nx)).astype(np.float32)*dy
+
+        self.raz = np.ones((ny,nx)).astype(np.float32)*dx*dy
+
+        dxl = np.ones((nx)).astype(np.float32)*dx
+        self.xg = dxl.cumsum() - dx 
+        self.xc = self.xg + dx*0.5
+
+        dyl = np.ones((ny)).astype(np.float32)*dy
+        self.yg = dyl.cumsum() - dy 
+        self.yc = self.yg + dy*0.5
+
+        self.mask = np.ones((ny,nx))
+        self.mask[:,0] = 0.0
+        self.mask[:,nx-1] = 0.0
+        self.mask[0,:] = 0.0
+        self.mask[ny-1,:] = 0.0
+
+        xc = self.xg[-1]*0.5
+        yc = self.yg[-1]*0.5
+        for j in range(0,ny):
+            y = self.yg[j]
+            for i in range(0,nx):
+                x = self.xg[i]
+
+                # Place a hole to the north-east with 10% domain width radius 
+                r = np.sqrt( (x-1.7*xc)**2 + (y-1.7*yc)**2 )
+                if r <= 0.1*xc :
+                    self.mask[j,i] = 0.0
+
+                # Place a hole to the southwest with 15% domain width radius
+                r = np.sqrt( (x-0.2*xc)**2 + (y-0.3*yc)**2 )
+                if r <= 0.15*xc :
+                    self.mask[j,i] = 0.0
+
+                # Place a hole to the south-east with 40% domain width radius 
+                r = np.sqrt( (x-1.3*xc)**2 + (y-0.4*yc)**2 )
+                if r <= 0.4*xc :
+                    self.mask[j,i] = 0.0
+
+                r = np.sqrt( (x)**2 + (y-2.0*yc)**2 )
+                f = np.exp( -r/(0.2*xc*xc) )
+                if f > 0.85 :
+                    self.mask[j,i] = 0.0
+
+
+        self.ndof = self.mask.sum().astype(int)
 
     def loadGrid(self, dataDir, chunks=None, depth=0, x=None, y=None, iters=None, geometry="sphericalpolar"):
         """Loads in grid from MITgcm metadata files in dataDir

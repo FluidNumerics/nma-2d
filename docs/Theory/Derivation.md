@@ -1,7 +1,7 @@
 # Derivation of Normal Mode Analysis
 
 
-## Problem definition & motivation
+## Overview
 The normal mode analysis in `xnma` assumes that we are interested in calculating the spectra associated with a 2-D velocity field in an arbitrary domain. For logically rectangular domains with periodic boundary conditions, Fourier Transforms are well suited to calculate spectra. However, velocity fields in regional ocean/atmosphere simulations are not periodic. To handle the lack of periodicity, windowing is usually performed wherein the velocity fields are multiplied by a function that decays to zero smoothly near the domain boundaries. Additionally, 2-D planes of data formed by intersecting regional model domains with a plane at constant depth result in "islands" or "holes". To handle these irregularities, researchers usually interpolate through these discontinuities. These workarounds arose simply because we had not considered an alternative approach that is designed to handle irregular geometries and non-periodicity.
 
 
@@ -12,7 +12,7 @@ With Fourier Analysis, the basis functions are complex exponentials. In 2-D, the
 With Normal Mode Analysis, vector fields are written in terms of a Helmholz decomposition and the basis functions are generated from a Sturm-Liouville Boundary Value problem that incorporates regional geometry. Note that the Fourier Basis functions are a special case, where the Fourier modes are the solution to Laplace's equation on a rectangular domain with periodic boundary conditions. In the `xnma` methodology, the basis functions are solutions to Laplace's equation with homogeneous Dirichlet boundary conditions and the geometry is defined by the user-provided regional domain. The Helmholz decomposition splits the velocity field into divergent and rotational components and is used to ensure that the projection operation matches the boundary normal and tangential velocities. This approach allows us to ascribe energy to specific length scales and to rotational and divergent motions.
 
 
-### Formal Definitions
+## Formal Definitions
 To help formalize our discussion, let's define a few things
 
 * The 2-D domain where we have velocity field data $A$ and its boundary is $\partial A$, 
@@ -57,7 +57,7 @@ Taking the curl of $\vec{u}$ gives
 \end{equation}
 
 
-### Boundary conditions for the Helmholz potentials
+## Boundary conditions for the Helmholz potentials
 The Helmholz decomposition results in inhomogeneous elliptic equations for the Helmholz potentials $\Psi$ and $\Phi$. Such a partial differential equation also needs boundary conditions to uniquely define a solution. For the boundary condition, we appeal to energetics.
 
 For our purposes, the vector fields we are interested are velocity fields for which the kinetic energy is proportional to $||\vec{u}||^2$. The total area integrated energy is written as
@@ -89,7 +89,7 @@ This is a desirable result in that the total energy can be cleanly separated in 
 \end{align}
 
 
-### Series solutions to the Helmholz problems
+## Series solutions to the Helmholz problems
 Series solutions to boundary value problems are expressed as a linear combination of basis functions. $\Phi$ and $\Psi$ both solve elliptic boundary value problems with homogeneous Dirichlet boundary conditions; their main difference is in the "forcing" term on the right-hand-side. 
 
 The appropriate basis functions to use in a series solution are generated from the Sturm-Liouville eigenvalue problem
