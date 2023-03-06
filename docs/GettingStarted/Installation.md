@@ -1,14 +1,7 @@
 # Installation
 
-## Install xnma from pypi index
-If you'd like to obtain a tagged release version of xnma (recommended), xnma can be installed using `pip`.
-
-```
-pip install xnma==0.0.0
-```
-
 ## Install experimental version of xnma
-If you'd like to install a more experimental version of xnma, you can clone the nmaSpectra repository to your workstation and install with `pip`.
+If you'd like to install an experimental version of xnma, you can clone the xnma repository to your workstation and install with `pip`.
 
 ```
 git clone https://github.com/fluidnumerics/xnma ~/xnma
