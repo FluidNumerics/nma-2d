@@ -31,8 +31,8 @@ def main():
     zeta = np.zeros( model.mask.shape, dtype=np.float32 ) 
     zeta = kernels.vorticity( u, v, model.dxc, model.dyc, model.raz  )
 
-#    divu = np.zeros( model.mask.shape, dtype=np.float32 ) 
-#    divu = kernels.divergence( u, v, model.dxg, model.dyg, model.rac  )
+    divu = np.zeros( model.mask.shape, dtype=np.float32 ) 
+    divu = kernels.divergence( u, v, model.dxg, model.dyg, model.hFacS, model.hFacW, model.rac  )
 
     # Calculate the rotational component
     psi = np.ones(model.mask.shape,dtype=np.float32)
@@ -64,16 +64,24 @@ def main():
     plt.colorbar()
 
 
-#    ax = plt.subplot(3, 2, 3)
-#    plt.pcolor(model.xg, model.yg, zeta)
-#    plt.set_cmap("cividis")
-#    ax.set_title(f"z")
-#    ax.set_xlabel("x")
-#    ax.set_ylabel("y")
-#    plt.colorbar()
-
-
     ax = plt.subplot(3, 2, 3)
+    plt.pcolor(model.xg, model.yg, zeta)
+    plt.set_cmap("cividis")
+    ax.set_title(f"z")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+
+    ax = plt.subplot(3, 2, 4)
+    plt.pcolor(model.xc, model.yc, divu)
+    plt.set_cmap("cividis")
+    ax.set_title(f"z")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+
+
+    ax = plt.subplot(3, 2, 5)
     plt.pcolor(model.xg, model.yc, ur, vmin=-1.8, vmax=1.8)
     plt.set_cmap("cividis")
     ax.set_title(f"u_r")
@@ -81,7 +89,7 @@ def main():
     ax.set_ylabel("y")
     plt.colorbar()
 
-    ax = plt.subplot(3, 2, 4)
+    ax = plt.subplot(3, 2, 6)
     plt.pcolor(model.xc, model.yg, vr, vmin=-1.2, vmax=1.2)
     plt.set_cmap("cividis")
     ax.set_title(f"v_r")
@@ -89,21 +97,21 @@ def main():
     ax.set_ylabel("y")
     plt.colorbar()
 
-    ax = plt.subplot(3, 2, 5)
-    plt.pcolor(model.xg, model.yc, u-ur)
-    plt.set_cmap("cividis")
-    ax.set_title(f"u-u_r")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    plt.colorbar()
-
-    ax = plt.subplot(3, 2, 6)
-    plt.pcolor(model.xc, model.yg, v-vr)
-    plt.set_cmap("cividis")
-    ax.set_title(f"v-v_r")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    plt.colorbar()
+#    ax = plt.subplot(3, 2, 5)
+#    plt.pcolor(model.xg, model.yc, u-ur)
+#    plt.set_cmap("cividis")
+#    ax.set_title(f"u-u_r")
+#    ax.set_xlabel("x")
+#    ax.set_ylabel("y")
+#    plt.colorbar()
+#
+#    ax = plt.subplot(3, 2, 6)
+#    plt.pcolor(model.xc, model.yg, v-vr)
+#    plt.set_cmap("cividis")
+#    ax.set_title(f"v-v_r")
+#    ax.set_xlabel("x")
+#    ax.set_ylabel("y")
+#    plt.colorbar()
 
 
     plt.show()

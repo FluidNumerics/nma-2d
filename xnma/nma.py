@@ -72,6 +72,7 @@ class model:
         self.dyg = np.ones((ny,nx)).astype(np.float32)*dy
 
         self.raz = np.ones((ny,nx)).astype(np.float32)*dx*dy
+        self.rac = np.ones((ny,nx)).astype(np.float32)*dx*dy
 
         dxl = np.ones((nx)).astype(np.float32)*dx
         self.xg = dxl.cumsum() - dx 
@@ -114,6 +115,7 @@ class model:
         self.dyg = np.ones((ny,nx)).astype(np.float32)*dy
 
         self.raz = np.ones((ny,nx)).astype(np.float32)*dx*dy
+        self.rac = np.ones((ny,nx)).astype(np.float32)*dx*dy
 
         dxl = np.ones((nx)).astype(np.float32)*dx
         self.xg = dxl.cumsum() - dx 
@@ -165,6 +167,7 @@ class model:
         self.dyg = np.ones((ny,nx)).astype(np.float32)*dy
 
         self.raz = np.ones((ny,nx)).astype(np.float32)*dx*dy
+        self.rac = np.ones((ny,nx)).astype(np.float32)*dx*dy
 
         dxl = np.ones((nx)).astype(np.float32)*dx
         self.xg = dxl.cumsum() - dx 
@@ -263,6 +266,7 @@ class model:
         self.dxg = self.ds.dxG.to_numpy().astype(np.float32)
         self.dyg = self.ds.dyG.to_numpy().astype(np.float32)
         self.raz = self.ds.rAz.to_numpy().astype(np.float32)
+        self.rac = self.ds.rA.to_numpy().astype(np.float32)
 
 
         zd = -abs(depth) #ensure that depth is negative value
@@ -270,6 +274,8 @@ class model:
         self.V = self.ds.V.interp(Z=[zd],method="nearest")
 
         self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
+        self.hFacW = self.ds.hFacW.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
+        self.hFacS = self.ds.hFacS.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
         ny, nx = self.hFacC.shape
         self.mask = np.ones( self.hFacC.shape )
         self.mask[:,0] = 0.0

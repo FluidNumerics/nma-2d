@@ -36,6 +36,16 @@ def vorticity( u, v, dxc, dyc, raz  ):
     return vorticity_stencil( u, v, dxc, dyc, raz )
 
 @stencil
+def divergence_stencil( u, v, dxg, dyg, hfacw, hfacs, rac ):
+    """Stencil for calculating divergence on an Arakawa C-grid"""
+
+    return ( u[0,1]*dyg[0,1]*hfacw[0,1] - u[0,0]*dyg[0,0]*hfacw[0,0] + v[1,0]*dxg[1,0]*hfacs[1,0] - v[0,0]*dxg[0,0]*hfacs[0,0] )/rac[0,0]
+
+@njit(parallel=True,cache=True)
+def divergence( u, v, dxg, dyg, hfacw, hfacs, rac  ):
+    return divergence_stencil( u, v, dxg, dyg, hfacw, hfacs, rac )
+
+@stencil
 def LapZ_stencil( s, dxc, dyc, dxg, dyg, raz ):
     """Stencil for the laplacian on vorticity points"""
     
@@ -74,9 +84,8 @@ def LapC( s, dxc, dyc, dxg, dyg, rac  ):
     return LapC_stencil( s, dxc, dyc, dxg, dyg, rac )
 
 @njit(parallel=True,cache=True)
-def LapZ_Residual( s, b, mask, dxc, dyc, dxg, dyg, rac ):
+def LapC_Residual( s, b, mask, dxc, dyc, dxg, dyg, rac ):
     """Calculates the residual for the laplacian on tracer points"""
-
     return ( b - LapC( s, dxc, dyc, dxg, dyg, rac ) )*mask
 
 # //////////////// Jacobi Method  //////////////// # 
