@@ -8,14 +8,15 @@
 #   The mask applies to vorticity points on the
 #   arakawa c-grid (z-points below).
 #
-#   We have chosen to completely surround
-#   all tracer points in the domain with vorticity points;
-#   This means that valid tracer points are in the 
-#   range (0:nx-2,0:ny-2)
 #
 #   Vorticity points are in the range (0:nx-1,0:ny-1)
 #   "Ghost points" for the vorticty points are imposed at
 #   (0,:), (nx-1,:), (:,0), (:,ny-1)
+#   
+#   We have chosen to completely surround
+#   all tracer points in the domain with vorticity points;
+#   This means that valid tracer points are in the 
+#   range (0:nx-2,0:ny-2)
 #
 #
 #   Additionally, the grid metrics need to be of size (nx+1,ny+1)
@@ -209,8 +210,8 @@ class model:
 
         self.ndof = self.mask.sum().astype(int)
 
-    def loadGrid(self, dataDir, chunks=None, depth=0, x=None, y=None, iters=None, geometry="sphericalpolar"):
-        """Loads in grid from MITgcm metadata files in dataDir
+    def load(self, dataDir, chunks=None, depth=0, x=None, y=None, iters=None, geometry="sphericalpolar"):
+        """Loads in grid and velocity field from MITgcm metadata files in dataDir
         and configures masks at given depth"""
         import numpy as np
         import numpy.ma as ma
@@ -250,9 +251,13 @@ class model:
                 self.ds = self.ds.sel(YG=slice(y[0],self.ds.YC[-1]))
 
         # Create a grid object
-        #self.grid = xgcm.Grid(self.ds)
+        self.grid = xgcm.Grid(self.ds)
 
         # Copy data to numpy arrays (for numba acceleration)
+        self.xc = self.ds.XC.to_numpy().astype(np.float32)
+        self.yc = self.ds.YC.to_numpy().astype(np.float32)
+        self.xg = self.ds.XG.to_numpy().astype(np.float32)
+        self.yg = self.ds.YG.to_numpy().astype(np.float32)
         self.dxc = self.ds.dxC.to_numpy().astype(np.float32)
         self.dyc = self.ds.dyC.to_numpy().astype(np.float32)
         self.dxg = self.ds.dxG.to_numpy().astype(np.float32)
@@ -261,6 +266,9 @@ class model:
 
 
         zd = -abs(depth) #ensure that depth is negative value
+        self.U = self.ds.U.interp(Z=[zd],method="nearest")
+        self.V = self.ds.V.interp(Z=[zd],method="nearest")
+
         self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
         ny, nx = self.hFacC.shape
         self.mask = np.ones( self.hFacC.shape )
@@ -269,8 +277,8 @@ class model:
         self.mask[0,:] = 0.0
         self.mask[ny-1,:] = 0.0
 
-        for j in range(0,ny):
-            for i in range(0,nx):
+        for j in range(0,ny-1):
+            for i in range(0,nx-1):
                 if self.hFacC[j,i] == 0.0:
 
                     self.mask[j,i] = 0.0
@@ -381,7 +389,6 @@ class model:
                 smag == np.max(abs(b))
 
             if( dsmag/smag <= tolerance ):
-                #print(f"Jacobi method converged in {k} iterations : {dsmag/smag}")
                 break
 
             # Update the solution
@@ -423,7 +430,7 @@ class model:
         import numpy as np
         from numpy import ma
         import xnma.kernels as kernels
-        import time
+        #import time
 
         # b comes in as a 1-D array in "DOF" format
         # we need to convert it to a 2-D array consistent with the model grid
@@ -435,13 +442,13 @@ class model:
 
         x = np.ones(self.mask.shape,dtype=np.float32)
         # Invert the laplacian
-        tic = time.perf_counter()
+        #tic = time.perf_counter()
         x = self.LapZInv_PCCG(bgrid.data, s0=None, 
                 pcitermax=20, pctolerance=1e-2, itermax=1500,
                 tolerance=1e-12)
-        toc = time.perf_counter()
-        runtime = toc-tic
-        print(f"Laplacian inverse runtime : {runtime:0.4f} s")
+        #toc = time.perf_counter()
+        #runtime = toc-tic
+        #print(f"Laplacian inverse runtime : {runtime:0.4f} s")
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array( x, mask = abs(self.mask - 1.0), 
@@ -465,6 +472,7 @@ class model:
         from scipy.sparse.linalg import eigsh
         import time
         import numpy as np
+        from numpy import ma
 
         shape = (self.ndof,self.ndof)
     
@@ -482,12 +490,12 @@ class model:
         print(f"eigsh runtime : {runtime:0.4f} s")
 
         self.eigenvalues = evals
-        self.eigenmodes = evecs
 
-        #for k in range(0,nmodes):
+        sgrid = ma.masked_array( np.zeros(self.mask.shape), mask=abs(self.mask - 1.0), dtype=np.float32 )
+        ny, nx = self.mask.shape
+        self.eigenmodes = np.zeros( (nmodes,ny,nx), dtype=np.float32 )
 
-
-
-
-
+        for k in range(0,nmodes):
+            sgrid[~sgrid.mask] = evecs[:,k]
+            self.eigenmodes[k,:,:] = sgrid.data*self.mask
 
