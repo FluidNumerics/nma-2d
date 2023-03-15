@@ -35,15 +35,13 @@ def main():
     plt.subplots_adjust(hspace=1.0,wspace=0.5)
     plt.suptitle("Eigenmodes", fontsize=18, y=0.95)
 
-    sgrid = ma.masked_array( np.zeros(model.mask.shape), mask=abs(model.mask - 1.0), dtype=np.float32 )
     for k in range(0,16):
         ei = nmodes-17+k
-        sgrid[~sgrid.mask] = model.eigenmodes[:,ei]
-
+        sgrid = ma.masked_array( model.eigenmodes[ei,:,:].squeeze(), mask=abs(model.maskInZ - 1.0), dtype=np.float32 )
         # add a new subplot iteratively
         ax = plt.subplot(4, 4, k+1)
     
-        plt.pcolor(model.xg, model.yg, sgrid,vmin=-0.03, vmax=0.03)
+        plt.pcolor(model.xg, model.yg, sgrid, vmin=-0.03, vmax=0.03)
         plt.set_cmap("cividis")
         # chart formatting
         ax.set_title(f"e_{ei}")

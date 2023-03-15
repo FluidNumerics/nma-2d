@@ -9,7 +9,7 @@ filename = inspect.getframeinfo(inspect.currentframe()).filename
 path     = os.path.dirname(os.path.abspath(filename))
 
 model = nma.model()
-model.loadGrid(f'{path}/data/')
+model.load(f'{path}/data/')
 print(model.ds)
 print(model.grid)
 

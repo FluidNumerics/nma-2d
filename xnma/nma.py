@@ -46,8 +46,10 @@ class model:
         self.ds = None
         self.grid = None
 
-        self.ndof = 0
-        self.mask = None
+        self.ndofZ = 0
+        self.ndofC = 0
+        self.maskInZ = None
+        self.maskInC = None
 
         self.eigenmodes = None # Defined on vorticicity points
         self.eigenvalues = None #
@@ -82,17 +84,43 @@ class model:
         self.yg = dyl.cumsum() - dy 
         self.yc = self.yg + dy*0.5
 
-        self.mask = np.ones((ny,nx))
-        self.mask[:,0] = 0.0
-        self.mask[:,nx-1] = 0.0
-        self.mask[0,:] = 0.0
-        self.mask[ny-1,:] = 0.0
-        wetcells = self.mask
-        self.ndof = wetcells.sum().astype(int)
+        # The stencil operations we use via numba
+        # enforce masking on the bounding quad boundaries
+        # Because of this, we set the maskInC to zero on the
+        # boundaries
+        self.maskInC = np.ones((ny,nx))
+        self.maskInC[:,0] = 0.0
+        self.maskInC[:,nx-1] = 0.0
+        self.maskInC[0,:] = 0.0
+        self.maskInC[ny-1,:] = 0.0
+        self.ndofC = self.maskInC.sum().astype(int)
 
-        # Create template masked arrays
-        self.b = ma.masked_array( np.zeros((ny,nx)), mask=abs(self.mask - 1.0), dtype=np.float32 )
-        self.s = ma.masked_array( np.zeros((ny,nx)), mask=abs(self.mask - 1.0), dtype=np.float32 )
+        # A consistent z-mask is set, assuming
+        # z[j,i] is at the southwest corner of
+        # c[j,i]
+        self.maskInZ = np.ones((ny,nx))
+        self.maskInZ[:,0] = 0.0
+        self.maskInZ[:,1] = 0.0
+        self.maskInZ[:,nx-1] = 0.0
+        self.maskInZ[0,:] = 0.0
+        self.maskInZ[1,:] = 0.0
+        self.maskInZ[ny-1,:] = 0.0
+        self.ndofZ = self.maskInZ.sum().astype(int)
+
+
+        self.hFacW = np.ones((ny,nx))
+        self.hFacW[:,0] = 0.0
+        self.hFacW[:,1] = 0.0
+        self.hFacW[:,nx-1] = 0.0
+        self.hFacW[0,:] = 0.0
+        self.hFacW[ny-1,:] = 0.0
+
+        self.hFacS = np.ones((ny,nx))
+        self.hFacS[:,0] = 0.0
+        self.hFacS[:,nx-1] = 0.0
+        self.hFacS[0,:] = 0.0
+        self.hFacS[1,:] = 0.0
+        self.hFacS[ny-1,:] = 0.0
 
     def circularDemo(self,dx=1.0,dy=1.0,nx=500,ny=500):
         """
@@ -125,11 +153,11 @@ class model:
         self.yg = dyl.cumsum() - dy 
         self.yc = self.yg + dy*0.5
 
-        self.mask = np.ones((ny,nx))
-        self.mask[:,0] = 0.0
-        self.mask[:,nx-1] = 0.0
-        self.mask[0,:] = 0.0
-        self.mask[ny-1,:] = 0.0
+        self.maskInZ = np.ones((ny,nx))
+        self.maskInZ[:,0] = 0.0
+        self.maskInZ[:,nx-1] = 0.0
+        self.maskInZ[0,:] = 0.0
+        self.maskInZ[ny-1,:] = 0.0
 
         xc = self.xg[-1]*0.5
         yc = self.yg[-1]*0.5
@@ -140,10 +168,10 @@ class model:
                 r = np.sqrt( (x-xc)**2 + (y-yc)**2 )
 
                 if r >= 0.9*xc :
-                    self.mask[j,i] = 0.0
+                    self.maskInZ[j,i] = 0.0
 
 
-        self.ndof = self.mask.sum().astype(int)
+        self.ndofZ = self.maskInZ.sum().astype(int)
 
     def irregularHolesDemo(self,dx=1.0,dy=1.0,nx=500,ny=500):
         """
@@ -177,11 +205,11 @@ class model:
         self.yg = dyl.cumsum() - dy 
         self.yc = self.yg + dy*0.5
 
-        self.mask = np.ones((ny,nx))
-        self.mask[:,0] = 0.0
-        self.mask[:,nx-1] = 0.0
-        self.mask[0,:] = 0.0
-        self.mask[ny-1,:] = 0.0
+        self.maskInZ = np.ones((ny,nx))
+        self.maskInZ[:,0] = 0.0
+        self.maskInZ[:,nx-1] = 0.0
+        self.maskInZ[0,:] = 0.0
+        self.maskInZ[ny-1,:] = 0.0
 
         xc = self.xg[-1]*0.5
         yc = self.yg[-1]*0.5
@@ -193,25 +221,25 @@ class model:
                 # Place a hole to the north-east with 10% domain width radius 
                 r = np.sqrt( (x-1.7*xc)**2 + (y-1.7*yc)**2 )
                 if r <= 0.1*xc :
-                    self.mask[j,i] = 0.0
+                    self.maskInZ[j,i] = 0.0
 
                 # Place a hole to the southwest with 15% domain width radius
                 r = np.sqrt( (x-0.2*xc)**2 + (y-0.3*yc)**2 )
                 if r <= 0.15*xc :
-                    self.mask[j,i] = 0.0
+                    self.maskInZ[j,i] = 0.0
 
                 # Place a hole to the south-east with 40% domain width radius 
                 r = np.sqrt( (x-1.3*xc)**2 + (y-0.4*yc)**2 )
                 if r <= 0.4*xc :
-                    self.mask[j,i] = 0.0
+                    self.maskInZ[j,i] = 0.0
 
                 r = np.sqrt( (x)**2 + (y-2.0*yc)**2 )
                 f = np.exp( -r/(0.2*xc*xc) )
                 if f > 0.85 :
-                    self.mask[j,i] = 0.0
+                    self.maskInZ[j,i] = 0.0
 
 
-        self.ndof = self.mask.sum().astype(int)
+        self.ndofZ = self.maskInZ.sum().astype(int)
 
     def load(self, dataDir, chunks=None, depth=0, x=None, y=None, iters=None, geometry="sphericalpolar"):
         """Loads in grid and velocity field from MITgcm metadata files in dataDir
@@ -276,24 +304,36 @@ class model:
         self.hFacC = self.ds.hFacC.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
         self.hFacW = self.ds.hFacW.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
         self.hFacS = self.ds.hFacS.interp(Z=[zd],method="nearest").squeeze().to_numpy().astype(np.float32)
-        ny, nx = self.hFacC.shape
-        self.mask = np.ones( self.hFacC.shape )
-        self.mask[:,0] = 0.0
-        self.mask[:,nx-1] = 0.0
-        self.mask[0,:] = 0.0
-        self.mask[ny-1,:] = 0.0
 
-        for j in range(0,ny-1):
-            for i in range(0,nx-1):
+        ny,nx = self.hFacC.shape
+
+        # mask out boundaries
+        self.hFacW[:,0] = 0.0
+        self.hFacW[:,nx-1] = 0.0
+        self.hFacS[0,:] = 0.0
+        self.hFacS[ny-1,:] = 0.0
+
+        ny, nx = self.hFacC.shape
+        self.maskInZ = np.ones( self.hFacC.shape )
+        self.maskInZ[:,0] = 0.0
+        self.maskInZ[:,nx-1] = 0.0
+        self.maskInZ[0,:] = 0.0
+        self.maskInZ[ny-1,:] = 0.0
+
+        self.maskInC = np.ones( self.hFacC.shape )
+        self.maskInC = np.ceil( self.hFacC )
+
+        for j in range(0,ny-2):
+            for i in range(0,nx-2):
                 if self.hFacC[j,i] == 0.0:
 
-                    self.mask[j,i] = 0.0
-                    self.mask[j,i+1] = 0.0
-                    self.mask[j+1,i] = 0.0
-                    self.mask[j+1,i+1] = 0.0
+                    self.maskInZ[j,i] = 0.0
+                    self.maskInZ[j,i+1] = 0.0
+                    self.maskInZ[j+1,i] = 0.0
+                    self.maskInZ[j+1,i+1] = 0.0
 
-        wetcells = self.mask
-        self.ndof = wetcells.sum().astype(int)
+        self.ndofZ = self.maskInZ.sum().astype(int)
+        self.ndofC = self.maskInC.sum().astype(int)
 
 
     def LapZInv_PCCG(self, b, s0=None, pcitermax=20, pctolerance=1e-2, itermax=1500, tolerance=1e-4):
@@ -316,10 +356,10 @@ class model:
         else:
            sk = np.zeros_like( b ) 
 
-        sk = sk*self.mask 
+        sk = sk*self.maskInZ
 
         r = kernels.LapZ_Residual(sk, b, 
-                self.mask, self.dxc, self.dyc, 
+                self.maskInZ, self.dxc, self.dyc, 
                 self.dxg, self.dyg, self.raz )
 
         d = self.LapZInv_JacobiSolve( r, 
@@ -332,14 +372,14 @@ class model:
         for k in range(0,itermax):
 
             q = kernels.LapZ(d, self.dxc, self.dyc, 
-                    self.dxg, self.dyg, self.raz )*self.mask
+                    self.dxg, self.dyg, self.raz )*self.maskInZ
 
             alpha = delta/(np.sum(d*q))
 
             sk += alpha*d
             if k % 50 == 0:
                 r = kernels.LapZ_Residual(sk, b, 
-                        self.mask, self.dxc, self.dyc, 
+                        self.maskInZ, self.dxc, self.dyc, 
                         self.dxg, self.dyg, self.raz )
             else:
                 r -= alpha*q
@@ -361,7 +401,6 @@ class model:
         return sk
 
 
-
     def LapZInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4):
         """Performs Jacobi iterations to iteratively solve L s = b,
         where `L s` is the Laplacian on vorticity points applied to s
@@ -379,9 +418,9 @@ class model:
         else:
            sk = np.zeros_like( b ) 
 
-        sk = sk*self.mask 
+        sk = sk*self.maskInZ
         r = kernels.LapZ_Residual(sk, b, 
-                self.mask, self.dxc, self.dyc, 
+                self.maskInZ, self.dxc, self.dyc, 
                 self.dxg, self.dyg, self.raz )
 
         for k in range(0,itermax):
@@ -391,7 +430,7 @@ class model:
 
             dsmag = np.max(abs(ds))
             smag = np.max(abs(sk))
-            if smag < np.finfo(np.float32).eps:
+            if smag <= np.finfo(np.float32).eps:
                 smag == np.max(abs(b))
 
             if( dsmag/smag <= tolerance ):
@@ -401,13 +440,139 @@ class model:
             sk += ds
 
             r = kernels.LapZ_Residual(sk, b, 
-                    self.mask, self.dxc, self.dyc, 
+                    self.maskInZ, self.dxc, self.dyc, 
                     self.dxg, self.dyg, self.raz )
 
 
         return sk
 
-    def laplacian(self, x):
+    def LapCInv_PCCG(self, b, s0=None, pcitermax=0, pctolerance=1e-2, itermax=1500, tolerance=1e-4):
+        """Uses preconditioned conjugate gradient to solve L s = b,
+        where `L s` is the Laplacian on tracer points applied to s
+        Stopping criteria is when the relative change in the solution is
+        less than the tolerance.
+
+        The preconditioner is the LapCInv_JacobianSolve method.
+
+        Algorithm taken from pg.51 of 
+        https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf
+
+        """
+        import numpy as np
+        import xnma.kernels as kernels
+
+        if pcitermax > 0:
+            print("Warning : Jacobi preconditioner unverified for homogeneous neumann modes")
+
+        if s0:
+           sk = s0
+        else:
+           sk = np.zeros_like( b ) 
+
+        sk = sk*self.maskInC 
+
+        r = kernels.LapC_Residual(sk, b, 
+                self.maskInC, self.dxc, self.dyc, 
+                self.dxg, self.dyg, self.hFacW, 
+                self.hFacS,self.rac )
+
+        if pcitermax == 0:
+          d = r*self.maskInC
+        else:
+          d = self.LapCInv_JacobiSolve( r, 
+                  itermax=pcitermax, tolerance=pctolerance )
+
+        delta = np.sum(r*d)
+        rmag = np.max(abs(r))
+        r0 = rmag
+
+        for k in range(0,itermax):
+
+            print(f"(k,r) : ({k},{rmag})")
+            q = kernels.LapC(d, self.dxc, self.dyc, 
+                    self.dxg, self.dyg, self.hFacW, 
+                    self.hFacS, self.rac )*self.maskInC
+
+            alpha = delta/(np.sum(d*q))
+
+            sk += alpha*d
+            if k % 50 == 0:
+                r = kernels.LapC_Residual(sk, b, 
+                        self.maskInC, self.dxc, self.dyc, 
+                        self.dxg, self.dyg, self.hFacW, 
+                        self.hFacS,self.rac )
+            else:
+                r -= alpha*q
+
+            if pcitermax == 0:
+              x = r*self.maskInC
+            else:
+              x = self.LapCInv_JacobiSolve( r, 
+                      itermax=pcitermax, tolerance=pctolerance )
+        
+            rmag = np.max(abs(r))
+            deltaOld = delta 
+            delta = np.sum(r*x)
+            beta = delta/deltaOld
+            d = x + beta*d
+            if rmag/r0 <= tolerance:
+                break
+
+        if rmag/r0 > tolerance:
+           print(f"Conjugate gradient method did not converge in {k+1} iterations : {rmag}")
+
+        return sk
+
+
+    def LapCInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4):
+        """Performs Jacobi iterations to iteratively solve L s = b,
+        where `L s` is the Laplacian on tracer points applied to s
+        Stopping criteria is when the relative change in the solution is
+        less than the tolerance.
+
+        !!! warning
+            This tolerance is invalid when max(abs(b)) == max(abs(s)) = 0
+        """
+        import numpy as np
+        import xnma.kernels as kernels
+
+        if s0:
+           sk = s0
+        else:
+           sk = np.zeros_like( b ) 
+
+        sk = sk*self.maskInC
+        r = kernels.LapC_Residual(sk, b, 
+                self.maskInC, self.dxc, self.dyc, 
+                self.dxg, self.dyg, self.hFacW,
+                self.hFacS, self.rac )
+
+        for k in range(0,itermax):
+
+            ds = kernels.LapC_JacobiDinv( r, self.dxc, 
+                    self.dyc, self.dxg, self.dyg, self.hFacW,
+                    self.hFacS, self.rac )
+
+            dsmag = np.max(abs(ds))
+            smag = np.max(abs(sk))
+            if smag <= np.finfo(np.float32).eps:
+                smag == np.max(abs(b))
+
+            if( dsmag/smag <= tolerance ):
+                break
+
+            # Update the solution
+            sk += ds
+
+            r = kernels.LapC_Residual(sk, b, 
+                    self.maskInC, self.dxc, self.dyc, 
+                    self.dxg, self.dyg, self.hFacW,
+                    self.hFacS, self.rac )
+
+
+        return sk
+
+    def laplacianZ(self, x):
         """ Wrapper for the Laplacian, where x comes in as a flat 1-D array
             only at `wet` grid cell locations """
 
@@ -417,8 +582,8 @@ class model:
 
         # x comes in as a 1-D array in "DOF" format
         # we need to convert it to a 2-D array consistent with the model grid
-        xgrid = ma.masked_array( np.zeros(self.mask.shape), 
-                mask = abs(self.mask - 1.0), dtype=np.float32 )
+        xgrid = ma.masked_array( np.zeros(self.maskInZ.shape), 
+                mask = abs(self.maskInZ - 1.0), dtype=np.float32 )
         xgrid[~xgrid.mask] = x # Set interior values to b
 
         # Invert the laplacian
@@ -426,10 +591,10 @@ class model:
                     self.dxg, self.dyg, self.raz )
 
         # Mask the data, so that we can return a 1-D array of unmasked values
-        return ma.masked_array( Lx, mask = abs(self.mask - 1.0), 
+        return ma.masked_array( Lx, mask = abs(self.maskInZ - 1.0), 
                 dtype=np.float32 ).compressed()
 
-    def laplacianInverse(self, b):
+    def laplacianZInverse(self, b):
         """ Wrapper for the Laplacian Inverse (with preconditioned conjugate gradient),
             where b comes in as a flat 1-D array only at `wet` grid cell locations """
 
@@ -442,11 +607,11 @@ class model:
         # we need to convert it to a 2-D array consistent with the model grid
         # Use the model.b attribute to push the DOF formatted data
 
-        bgrid = ma.masked_array( np.zeros(self.mask.shape),
-                mask = abs(self.mask - 1.0), dtype=np.float32 )
+        bgrid = ma.masked_array( np.zeros(self.maskInZ.shape),
+                mask = abs(self.maskInZ - 1.0), dtype=np.float32 )
         bgrid[~bgrid.mask] = b # Set interior values to b
 
-        x = np.ones(self.mask.shape,dtype=np.float32)
+        x = np.ones(self.maskInZ.shape,dtype=np.float32)
         # Invert the laplacian
         #tic = time.perf_counter()
         x = self.LapZInv_PCCG(bgrid.data, s0=None, 
@@ -457,7 +622,61 @@ class model:
         #print(f"Laplacian inverse runtime : {runtime:0.4f} s")
 
         # Mask the data, so that we can return a 1-D array of unmasked values
-        return ma.masked_array( x, mask = abs(self.mask - 1.0), 
+        return ma.masked_array( x, mask = abs(self.maskInZ - 1.0), 
+                dtype=np.float32 ).compressed()
+
+    def laplacianC(self, x):
+        """ Wrapper for the Laplacian, where x comes in as a flat 1-D array
+            only at `wet` grid cell locations """
+
+        import numpy as np
+        from numpy import ma
+        import xnma.kernels as kernels
+
+        # x comes in as a 1-D array in "DOF" format
+        # we need to convert it to a 2-D array consistent with the model grid
+        xgrid = ma.masked_array( np.zeros(self.maskInZ.shape), 
+                mask = abs(self.maskInC - 1.0), dtype=np.float32 )
+        xgrid[~xgrid.mask] = x # Set interior values to b
+
+        # Invert the laplacian
+        Lx = kernels.LapC(x, self.dxc, self.dyc, 
+                    self.dxg, self.dyg, self.hFacW,
+                    self.hFacS, self.raC )
+
+        # Mask the data, so that we can return a 1-D array of unmasked values
+        return ma.masked_array( Lx, mask = abs(self.maskInC - 1.0), 
+                dtype=np.float32 ).compressed()
+
+    def laplacianCInverse(self, b):
+        """ Wrapper for the Laplacian Inverse (with preconditioned conjugate gradient),
+            where b comes in as a flat 1-D array only at `wet` grid cell locations """
+
+        import numpy as np
+        from numpy import ma
+        import xnma.kernels as kernels
+        import time
+
+        # b comes in as a 1-D array in "DOF" format
+        # we need to convert it to a 2-D array consistent with the model grid
+        # Use the model.b attribute to push the DOF formatted data
+
+        bgrid = ma.masked_array( np.zeros(self.maskInC.shape),
+                mask = abs(self.maskInC - 1.0), dtype=np.float32 )
+        bgrid[~bgrid.mask] = b # Set interior values to b
+
+        x = np.ones(self.maskInZ.shape,dtype=np.float32)
+        # Invert the laplacian
+        tic = time.perf_counter()
+        x = self.LapCInv_PCCG(bgrid.data, s0=None, 
+                pcitermax=20, pctolerance=1e-2, itermax=1500,
+                tolerance=1e-12)
+        toc = time.perf_counter()
+        runtime = toc-tic
+        print(f"Laplacian inverse runtime : {runtime:0.4f} s")
+
+        # Mask the data, so that we can return a 1-D array of unmasked values
+        return ma.masked_array( x, mask = abs(self.maskInC - 1.0), 
                 dtype=np.float32 ).compressed()
 
     def findEigenmodes( self, nmodes = 10, tolerance=0):
@@ -480,28 +699,39 @@ class model:
         import numpy as np
         from numpy import ma
 
-        shape = (self.ndof,self.ndof)
-    
-#        L = LinearOperator(shape, matvec=lambda x: self.laplacian(x),dtype=np.float32)
-        Linv = LinearOperator(shape, matvec=lambda b: self.laplacianInverse(b),dtype=np.float32)
+        shape = (self.ndofZ,self.ndofZ)
+        LZinv = LinearOperator(shape, matvec=lambda b: self.laplacianZInverse(b),dtype=np.float32)
 
-        print("Starting eigenvalue search")
+        shape = (self.ndofZ,self.ndofC)
+        LCinv = LinearOperator(shape, matvec=lambda b: self.laplacianCInverse(b),dtype=np.float32)
+
+        print("[Dirichlet modes] Starting eigenvalue search")
         tic = time.perf_counter()
-        evals, evecs = eigsh(Linv, 
+        evals_d, evecs_d = eigsh(LZinv, 
                              k=nmodes, 
                              tol=tolerance,
                              return_eigenvectors=True) 
         toc = time.perf_counter()
         runtime = toc-tic
-        print(f"eigsh runtime : {runtime:0.4f} s")
+        print(f"[Dirichlet modes] eigsh runtime : {runtime:0.4f} s")
 
-        self.eigenvalues = evals
+        print("[Neumann modes] Starting eigenvalue search")
+        tic = time.perf_counter()
+        evals_d, evecs_d = eigsh(LCinv,
+                             k=nmodes,
+                             tol=tolerance,
+                             return_eigenvectors=True) 
+        toc = time.perf_counter()
+        runtime = toc-tic
+        print(f"[Neumann modes] eigsh runtime : {runtime:0.4f} s")
 
-        sgrid = ma.masked_array( np.zeros(self.mask.shape), mask=abs(self.mask - 1.0), dtype=np.float32 )
-        ny, nx = self.mask.shape
+        self.eigenvalues = evals_d
+
+        sgrid = ma.masked_array( np.zeros(self.maskInZ.shape), mask=abs(self.maskInZ - 1.0), dtype=np.float32 )
+        ny, nx = self.maskInZ.shape
         self.eigenmodes = np.zeros( (nmodes,ny,nx), dtype=np.float32 )
 
         for k in range(0,nmodes):
-            sgrid[~sgrid.mask] = evecs[:,k]
-            self.eigenmodes[k,:,:] = sgrid.data*self.mask
+            sgrid[~sgrid.mask] = evecs_d[:,k]
+            self.eigenmodes[k,:,:] = sgrid.data*self.maskInZ
 
