@@ -13,6 +13,7 @@ import numpy.ma as ma
 import sys
 import time
 
+nmodes = 100
 
 def main():
     # Get full path to examples/
@@ -25,25 +26,24 @@ def main():
 
     model.construct(dx=1.0,dy=1.0,nx=51,ny=51)
 
-    model.findEigenmodes( nmodes = 10 )
+    model.findEigenmodes( nmodes = nmodes ) 
 
-    print( model.eigenvalues )
+    #print( model.eigenvalues )
     
     plt.figure(figsize=(10,12))
     plt.subplots_adjust(hspace=1.0,wspace=0.5)
     plt.suptitle("Eigenmodes", fontsize=18, y=0.95)
 
-    sgrid = ma.masked_array( np.zeros(model.mask.shape), mask=abs(model.mask - 1.0), dtype=np.float32 )
-    for k in range(0,9):
-        sgrid[~sgrid.mask] = model.eigenmodes[:,k]
-
+    for k in range(0,16):
+        ei = 2*nmodes-17+k
+        sgrid = ma.masked_array( model.eigenmodes[ei,:,:].squeeze(), mask=abs(model.maskInZ - 1.0), dtype=np.float32 )
         # add a new subplot iteratively
-        ax = plt.subplot(3, 3, k+1)
+        ax = plt.subplot(4, 4, k+1)
     
-        #plt.contourf(model.xg, model.yg, sgrid)
-        plt.pcolor(model.xg, model.yg, sgrid,vmin=-0.05, vmax=0.05)
+        plt.pcolor(model.xg, model.yg, sgrid, vmin=-0.03, vmax=0.03)
+        plt.set_cmap("cividis")
         # chart formatting
-        ax.set_title(f"e_{k}")
+        ax.set_title(f"e_{ei}")
         ax.set_xlabel("x_g")
         ax.set_ylabel("y_g")
         plt.colorbar()
@@ -51,17 +51,7 @@ def main():
 
     plt.show()
 
-    #sgrid[~sgrid.mask] = model.eigenmodes[:,1]
 
-    #plt.contourf(model.xg, model.yg, sgrid)
-    #plt.colorbar()
-    #plt.show()
-
-    #sgrid[~sgrid.mask] = model.eigenmodes[:,-1]
-
-    #plt.contourf(model.xg, model.yg, sgrid)
-    #plt.colorbar()
-    #plt.show()
 
 if __name__=="__main__":
     main()

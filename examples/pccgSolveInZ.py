@@ -18,15 +18,14 @@ def main():
     
     model = nma.model()
 
-    #model.construct(dx=0.5,dy=0.5,nx=1001,ny=1001)
-    model.construct(dx=0.5,dy=0.5,nx=11,ny=11)
+    model.construct(dx=0.5,dy=0.5,nx=101,ny=101)
     
-    s = np.ones(model.mask.shape,dtype=np.float32)
+    s = np.ones(model.maskInZ.shape,dtype=np.float32)
 
     ny, nx = s.shape    
 
-    s0 = np.zeros(model.mask.shape,dtype=np.float32)
-    b = np.zeros(model.mask.shape,dtype=np.float32)
+    s0 = np.zeros(model.maskInZ.shape,dtype=np.float32)
+    b = np.zeros(model.maskInZ.shape,dtype=np.float32)
 
     wx = 2.0*np.pi/model.xg[-1]
     wy = 2.0*np.pi/model.yg[-1]
@@ -48,9 +47,9 @@ def main():
     runtime = toc-tic
     print(f"Preconditioned Conjugate Gradient solve runtime : {runtime:0.4f} s")
 
-#    plt.contourf(model.xg,model.yg,s)
-#    plt.colorbar()
-#    plt.show()
+    plt.contourf(model.xg,model.yg,s)
+    plt.colorbar()
+    plt.show()
 
 
 if __name__=="__main__":
