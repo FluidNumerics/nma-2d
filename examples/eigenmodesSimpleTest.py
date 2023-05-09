@@ -48,7 +48,7 @@ def main():
         # add a new subplot iteratively
         ax = plt.subplot(4, 4, k+1)
     
-        plt.pcolor(model.xc, model.yc, sgrid, vmin=-0.03, vmax=0.03)
+        plt.pcolor(model.xc, model.yc, sgrid, vmin=-60, vmax=60)
         plt.set_cmap("cividis")
         # chart formatting
         ax.set_title(f"e_{ei}")

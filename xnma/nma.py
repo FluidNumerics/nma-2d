@@ -53,6 +53,7 @@ class model:
 
         self.eigenmodes = None # Defined on vorticicity points
         self.eigenvalues = None #
+        
 
     def construct(self,dx=1.0,dy=1.0,nx=500,ny=500):
         """
@@ -726,19 +727,71 @@ class model:
       
         
         for k in range(0,nmodes):
+            eigenvalues[k] = -(1.0/evals_d[k] + deShift) # Change the sign of the eigenvalues
             # Interpolate the dirichlet modes from the vorticity points
             # to the tracer points and store the result in sgrid
             sZgrid[~sZgrid.mask] = evecs_d[:,k]
             f = sZgrid.data*self.maskInZ          
-            eigenvalues[k] = -(1.0/evals_d[k] + deShift) # Change the sign of the eigenvalues
-            eigenmodes[k,:,:] = kernels.vorticityToTracer(f)*self.maskInC
+            g = kernels.vorticityToTracer(f)*self.maskInC
+            
+            # Normalize so that the area integral is 1
+            mag = np.sum(g*g*self.rac)
+            eigenmodes[k,:,:] = g/mag
             
         for k in range(0,nmodes):
-            sgrid[~sgrid.mask] = evecs_n[:,k]
             eigenvalues[k+nmodes] = -(1.0/evals_n[k] + neShift) # Change the sign of the eigenvalues
-            eigenmodes[k+nmodes,:,:] = sgrid.data*self.maskInC
+            sgrid[~sgrid.mask] = evecs_n[:,k]
+            g = sgrid.data*self.maskInC
+            
+           # Normalize so that the area integral is 1
+            mag = np.sum(g*g*self.rac)
+            eigenmodes[k+nmodes,:,:] = g/mag
             
         ind = np.argsort(eigenvalues)
       
         self.eigenvalues = eigenvalues[ind]
         self.eigenmodes = eigenmodes[ind,:,:]
+        
+    def vectorProjection( self, u, v ):
+        import numpy as np
+        from numpy import ma
+        import xnma.kernels as kernels
+        # if the eigenmodes have not been found
+        # find them, using the default parameters
+        if (self.eigemodes is None) :
+            self.findEigenmodes()
+            
+        print("Calculating projection of u,v")
+        
+        # Calculate the divergence
+        divergence = kernels.divergence( u, v, self.dxg, 
+                                  self.dyg, self.hFacW,
+                                  self.hFacS, self.rac  )*self.maskInC
+        
+        # Calculate the vorticity
+        curlU = kernels.vorticity( u, v, self.dxc,
+                                  self.dyc, self.raz )
+       
+        vorticity = kernels.vorticityToTracer(curlU)*self.maskInC
+        
+        nmodes = self.eigenvalues.shape()[0]
+        f_d = np.zeros( (nmodes), dtype=np.float32 )
+        f_v = np.zeros( (nmodes), dtype=np.float32 )
+        proj_d = np.zeros( (ny,nx), dtype=np.float32 )
+        proj_v = np.zeros( (ny,nx), dtype=np.float32 )
+        
+        for k in range(0,nmodes):
+          # Calculate the projection coefficients
+          f_d[k] = np.sum(divergence*np.squeeze(self.eigenmodes[k,:,:])*self.rac)
+          f_v[k] = np.sum(vorticity*np.squeeze(self.eigenmodes[k,:,:])*self.rac)
+          
+          # Calculate the projection
+          proj_d += f_d[k]*np.squeeze(self.eigenmodes[k,:,:])
+          proj_v += f_v[k]*np.squeeze(self.eigenmodes[k,:,:])
+          
+        
+        return f_d, f_v, proj_d, proj_v
+        
+        
+         
+        
