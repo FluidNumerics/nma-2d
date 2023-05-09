@@ -7,6 +7,16 @@ import numpy as np
 #eShift = 1e-2 # factor to shift the diagonal by for the neumann mode operator
 
 @stencil
+def vorticityToTracer_stencil( f ):
+    """Stencil for interpolating vorticity data onto tracer points"""
+    return 0.25*( f[0,0]+f[1,0]+f[1,1]+f[0,1] )
+
+@njit(parallel=True,cache=True)
+def vorticityToTracer( f  ):
+    return vorticityToTracer_stencil( f )
+
+
+@stencil
 def vr_stencil( psi, dxg ):
     """Stencil for calculating v-velocity from the rotational component"""
     return ( psi[0,1]-psi[0,0] )/dxg[0,0]

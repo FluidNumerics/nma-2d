@@ -39,7 +39,6 @@
 #   This helps with working with numpy's masked arrays
 #
 #
-eShift = 1e-2 # factor to shift the diagonal by for the neumann mode operator
 
 class model:
     def __init__(self):
@@ -78,11 +77,11 @@ class model:
         self.rac = np.ones((ny,nx)).astype(np.float32)*dx*dy
 
         dxl = np.ones((nx)).astype(np.float32)*dx
-        self.xg = dxl.cumsum() - dx 
+        self.xg = dxl.cumsum() - 2*dx 
         self.xc = self.xg + dx*0.5
 
         dyl = np.ones((ny)).astype(np.float32)*dy
-        self.yg = dyl.cumsum() - dy 
+        self.yg = dyl.cumsum() - 2*dy 
         self.yc = self.yg + dy*0.5
 
         # The stencil operations we use via numba
@@ -446,7 +445,7 @@ class model:
 
         return sk
 
-    def LapCInv_PCCG(self, b, s0=None, pcitermax=0, pctolerance=1e-2, itermax=1500, tolerance=1e-4):
+    def LapCInv_PCCG(self, b, s0=None, pcitermax=0, pctolerance=1e-2, itermax=1500, tolerance=1e-4, dShift = 1e-2):
         """Uses preconditioned conjugate gradient to solve L s = b,
         where `L s` is the Laplacian on tracer points applied to s
         Stopping criteria is when the relative change in the solution is
@@ -474,13 +473,13 @@ class model:
         r = kernels.LapC_Residual(sk, b, 
                 self.maskInC, self.dxc, self.dyc, 
                 self.dxg, self.dyg, self.hFacW, 
-                self.hFacS,self.rac, eShift )
+                self.hFacS,self.rac, dShift )
 
         if pcitermax == 0:
           d = r*self.maskInC
         else:
           d = self.LapCInv_JacobiSolve( r, 
-                  itermax=pcitermax, tolerance=pctolerance )
+                  itermax=pcitermax, tolerance=pctolerance, dShift = dShift )
 
         delta = np.sum(r*d)
         rmag = np.max(abs(r))
@@ -491,7 +490,7 @@ class model:
             #print(f"(k,r) : ({k},{rmag})")
             q = kernels.LapC(d, self.dxc, self.dyc, 
                     self.dxg, self.dyg, self.hFacW, 
-                    self.hFacS, self.rac, eShift )*self.maskInC
+                    self.hFacS, self.rac, dShift )*self.maskInC
 
             alpha = delta/(np.sum(d*q))
 
@@ -500,7 +499,7 @@ class model:
                 r = kernels.LapC_Residual(sk, b, 
                         self.maskInC, self.dxc, self.dyc, 
                         self.dxg, self.dyg, self.hFacW, 
-                        self.hFacS,self.rac, eShift )
+                        self.hFacS,self.rac, dShift )
             else:
                 r -= alpha*q
 
@@ -508,7 +507,7 @@ class model:
               x = r*self.maskInC
             else:
               x = self.LapCInv_JacobiSolve( r, 
-                      itermax=pcitermax, tolerance=pctolerance )
+                      itermax=pcitermax, tolerance=pctolerance, dShift = dShift )
         
             rmag = np.max(abs(r))
             deltaOld = delta 
@@ -524,7 +523,7 @@ class model:
         return sk
 
 
-    def LapCInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4):
+    def LapCInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4, dShift = 1e-2):
         """Performs Jacobi iterations to iteratively solve L s = b,
         where `L s` is the Laplacian on tracer points applied to s
         Stopping criteria is when the relative change in the solution is
@@ -545,13 +544,13 @@ class model:
         r = kernels.LapC_Residual(sk, b, 
                 self.maskInC, self.dxc, self.dyc, 
                 self.dxg, self.dyg, self.hFacW,
-                self.hFacS, self.rac, eShift )
+                self.hFacS, self.rac, dShift )
 
         for k in range(0,itermax):
 
             ds = kernels.LapC_JacobiDinv( r, self.dxc, 
                     self.dyc, self.dxg, self.dyg, self.hFacW,
-                    self.hFacS, self.rac, eShift )
+                    self.hFacS, self.rac, dShift )
 
             dsmag = np.max(abs(ds))
             smag = np.max(abs(sk))
@@ -567,12 +566,11 @@ class model:
             r = kernels.LapC_Residual(sk, b, 
                     self.maskInC, self.dxc, self.dyc, 
                     self.dxg, self.dyg, self.hFacW,
-                    self.hFacS, self.rac, eShift )
-
+                    self.hFacS, self.rac, dShift )
 
         return sk
 
-    def laplacianZ(self, x):
+    def laplacianZ(self, x, dShift):
         """ Wrapper for the Laplacian, where x comes in as a flat 1-D array
             only at `wet` grid cell locations """
 
@@ -594,7 +592,7 @@ class model:
         return ma.masked_array( Lx, mask = abs(self.maskInZ - 1.0), 
                 dtype=np.float32 ).compressed()
 
-    def laplacianZInverse(self, b):
+    def laplacianZInverse(self, b, dShift):
         """ Wrapper for the Laplacian Inverse (with preconditioned conjugate gradient),
             where b comes in as a flat 1-D array only at `wet` grid cell locations """
 
@@ -613,19 +611,15 @@ class model:
 
         x = np.ones(self.maskInZ.shape,dtype=np.float32)
         # Invert the laplacian
-        #tic = time.perf_counter()
         x = self.LapZInv_PCCG(bgrid.data, s0=None, 
                 pcitermax=20, pctolerance=1e-2, itermax=1500,
                 tolerance=1e-12)
-        #toc = time.perf_counter()
-        #runtime = toc-tic
-        #print(f"Laplacian inverse runtime : {runtime:0.4f} s")
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array( x, mask = abs(self.maskInZ - 1.0), 
                 dtype=np.float32 ).compressed()
 
-    def laplacianC(self, x):
+    def laplacianC(self, x, dShift):
         """ Wrapper for the Laplacian, where x comes in as a flat 1-D array
             only at `wet` grid cell locations """
 
@@ -642,13 +636,13 @@ class model:
         # Invert the laplacian
         Lx = kernels.LapC(x, self.dxc, self.dyc, 
                     self.dxg, self.dyg, self.hFacW,
-                    self.hFacS, self.raC, eShift )
+                    self.hFacS, self.raC, dShift )
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array( Lx, mask = abs(self.maskInC - 1.0), 
                 dtype=np.float32 ).compressed()
 
-    def laplacianCInverse(self, b):
+    def laplacianCInverse(self, b, dShift):
         """ Wrapper for the Laplacian Inverse (with preconditioned conjugate gradient),
             where b comes in as a flat 1-D array only at `wet` grid cell locations """
 
@@ -667,19 +661,15 @@ class model:
 
         x = np.ones(self.maskInZ.shape,dtype=np.float32)
         # Invert the laplacian
-       # tic = time.perf_counter()
         x = self.LapCInv_PCCG(bgrid.data, s0=None, 
                 pcitermax=20, pctolerance=1e-2, itermax=1500,
-                tolerance=1e-12)
-       # toc = time.perf_counter()
-       # runtime = toc-tic
-       # print(f"Laplacian inverse runtime : {runtime:0.4f} s")
+                tolerance=1e-12, dShift = dShift)
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array( x, mask = abs(self.maskInC - 1.0), 
                 dtype=np.float32 ).compressed()
 
-    def findEigenmodes( self, nmodes = 10, tolerance=0):
+    def findEigenmodes( self, nmodes = 10, tolerance=0, deShift = 0, neShift = 1e-2):
         """ Finds the eigenmodes using sci-py `eigsh`.
 
         Parameters
@@ -687,6 +677,8 @@ class model:
         nmodes - the number of eigenmodes you wish to find
         sigma  - Eigenmodes with eigenvalues near sigma are returned
         which  - Identical to the scipy `which` argument
+        deShift - factor to shift the diagonal by for the dirichlet mode operator
+        neShift - factor to shift the diagonal by for the neumann mode operator
 
         See scipy/eigsh docs for more details
 
@@ -698,12 +690,13 @@ class model:
         import time
         import numpy as np
         from numpy import ma
+        import xnma.kernels as kernels
 
         shape = (self.ndofZ,self.ndofZ)
-        LZinv = LinearOperator(shape, matvec=lambda b: self.laplacianZInverse(b),dtype=np.float32)
+        LZinv = LinearOperator(shape, matvec=lambda b: self.laplacianZInverse(b, deShift),dtype=np.float32)
 
         shape = (self.ndofC,self.ndofC)
-        LCinv = LinearOperator(shape, matvec=lambda b: self.laplacianCInverse(b),dtype=np.float32)
+        LCinv = LinearOperator(shape, matvec=lambda b: self.laplacianCInverse(b, neShift),dtype=np.float32)
 
         print("[Dirichlet modes] Starting eigenvalue search")
         tic = time.perf_counter()
@@ -725,21 +718,27 @@ class model:
         runtime = toc-tic
         print(f"[Neumann modes] eigsh runtime : {runtime:0.4f} s")
 
-        self.eigenvalues = evals_n + eShift # Shift the eigenvalues back by eShift
-
         sZgrid = ma.masked_array( np.zeros(self.maskInZ.shape), mask=abs(self.maskInZ - 1.0), dtype=np.float32 )
-        sCgrid = ma.masked_array( np.zeros(self.maskInZ.shape), mask=abs(self.maskInC - 1.0), dtype=np.float32 )
+        sgrid = ma.masked_array( np.zeros(self.maskInZ.shape), mask=abs(self.maskInC - 1.0), dtype=np.float32 )
         ny, nx = self.maskInZ.shape
-        self.eigenvalues = np.zeros( (nmodes*2), dtype=np.float32 )
-        self.eigenmodes = np.zeros( (nmodes*2,ny,nx), dtype=np.float32 )
-
+        eigenvalues = np.zeros( (nmodes*2), dtype=np.float32 )
+        eigenmodes = np.zeros( (nmodes*2,ny,nx), dtype=np.float32 )
+      
+        
         for k in range(0,nmodes):
+            # Interpolate the dirichlet modes from the vorticity points
+            # to the tracer points and store the result in sgrid
             sZgrid[~sZgrid.mask] = evecs_d[:,k]
-            self.eigenvalues[k] = evals_d[k]
-            self.eigenmodes[k,:,:] = sZgrid.data*self.maskInZ
+            f = sZgrid.data*self.maskInZ          
+            eigenvalues[k] = -(1.0/evals_d[k] + deShift) # Change the sign of the eigenvalues
+            eigenmodes[k,:,:] = kernels.vorticityToTracer(f)*self.maskInC
             
         for k in range(0,nmodes):
-            sCgrid[~sCgrid.mask] = evecs_n[:,k]
-            self.eigenvalues[k+nmodes] = evals_n[k]
-            self.eigenmodes[k+nmodes,:,:] = sCgrid.data*self.maskInC
-
+            sgrid[~sgrid.mask] = evecs_n[:,k]
+            eigenvalues[k+nmodes] = -(1.0/evals_n[k] + neShift) # Change the sign of the eigenvalues
+            eigenmodes[k+nmodes,:,:] = sgrid.data*self.maskInC
+            
+        ind = np.argsort(eigenvalues)
+      
+        self.eigenvalues = eigenvalues[ind]
+        self.eigenmodes = eigenmodes[ind,:,:]

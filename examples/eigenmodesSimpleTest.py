@@ -24,7 +24,15 @@ def main():
     
     model = nma.model()
 
-    model.construct(dx=1.0,dy=1.0,nx=51,ny=51)
+    Lx = 1.0
+    Ly = 1.0
+    nX = 28
+    nY = 28
+    
+    dx = Lx/(nX-3)
+    dy = Ly/(nY-3)
+    
+    model.construct(dx,dy,nX,nX)
 
     model.findEigenmodes( nmodes = nmodes ) 
 
@@ -40,7 +48,7 @@ def main():
         # add a new subplot iteratively
         ax = plt.subplot(4, 4, k+1)
     
-        plt.pcolor(model.xg, model.yg, sgrid, vmin=-0.03, vmax=0.03)
+        plt.pcolor(model.xc, model.yc, sgrid, vmin=-0.03, vmax=0.03)
         plt.set_cmap("cividis")
         # chart formatting
         ax.set_title(f"e_{ei}")
