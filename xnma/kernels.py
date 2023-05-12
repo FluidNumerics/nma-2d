@@ -93,25 +93,25 @@ def LapZ_Residual( s, b, mask, dxc, dyc, dxg, dyg, raz ):
     return ( b - LapZ( s, dxc, dyc, dxg, dyg, raz ) )*mask
 
 @stencil
-def LapC_stencil( s, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift=0 ):
+def LapC_stencil( s, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift=0 ):
     """Stencil for the laplacian on tracer points"""
     
-    a = hfacw[0,1]*dyg[0,1]/dxc[0,1]
-    b = hfacw[0,0]*dyg[0,0]/dxc[0,0]
-    c = hfacs[1,0]*dxg[1,0]/dyc[1,0]
-    d = hfacs[0,0]*dxg[0,0]/dyc[0,0]
+    a = maskw[0,1]*dyg[0,1]/dxc[0,1]
+    b = maskw[0,0]*dyg[0,0]/dxc[0,0]
+    c = masks[1,0]*dxg[1,0]/dyc[1,0]
+    d = masks[0,0]*dxg[0,0]/dyc[0,0]
 
     return ( a*s[0,1] + b*s[0,-1] + c*s[1,0] + d*s[-1,0] - (a+b+c+d)*s[0,0] )/rac[0,0] - eShift*s[0,0]
 
 
 @njit(parallel=True,cache=True)
-def LapC( s, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift=0  ):
-    return LapC_stencil( s, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift )
+def LapC( s, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift=0  ):
+    return LapC_stencil( s, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift )
 
 @njit(parallel=True,cache=True)
-def LapC_Residual( s, b, mask, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift=0 ):
+def LapC_Residual( s, b, mask, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift=0 ):
     """Calculates the residual for the laplacian on tracer points"""
-    return ( b - LapC( s, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift ) )*mask
+    return ( b - LapC( s, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift ) )*mask
 
 # //////////////// Jacobi Method  //////////////// # 
 
@@ -130,18 +130,18 @@ def LapZ_JacobiDinv( s, dxc, dyc, dxg, dyg, raz ):
     return LapZ_JacobiDinv_stencil( s, dxc, dyc, dxg, dyg, raz )
 
 @stencil(neighborhood = ((-1,1),(-1,1),))
-def LapC_JacobiDinv_stencil( s, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift=0 ):
+def LapC_JacobiDinv_stencil( s, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift=0 ):
     
-    a = hfacw[0,1]*dyg[0,1]/dxc[0,1]
-    b = hfacw[0,0]*dyg[0,0]/dxc[0,0]
-    c = hfacs[1,0]*dxg[1,0]/dyc[1,0]
-    d = hfacs[0,0]*dxg[0,0]/dyc[0,0]
+    a = maskw[0,1]*dyg[0,1]/dxc[0,1]
+    b = maskw[0,0]*dyg[0,0]/dxc[0,0]
+    c = masks[1,0]*dxg[1,0]/dyc[1,0]
+    d = masks[0,0]*dxg[0,0]/dyc[0,0]
 
     return -rac[0,0]/((a+b+c+d)+eShift*rac[0,0])*s[0,0]
 
 @njit(parallel=True,cache=True)
-def LapC_JacobiDinv( s, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift=0 ):
-    return LapC_JacobiDinv_stencil( s, dxc, dyc, dxg, dyg, hfacw, hfacs, rac, eShift )
+def LapC_JacobiDinv( s, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift=0 ):
+    return LapC_JacobiDinv_stencil( s, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift )
 
 
 
