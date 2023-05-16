@@ -40,6 +40,8 @@
 #
 #
 
+zeroTol = 1e-6
+
 class model:
     def __init__(self):
 
@@ -115,12 +117,17 @@ class model:
                     self.maskZ[j,i+1] = 0.0
                     self.maskZ[j+1,i] = 0.0
                     self.maskZ[j+1,i+1] = 0.0
+                    
                     self.maskW[j,i] = 0.0
                     self.maskW[j,i+1] = 0.0
                     self.maskS[j,i] = 0.0
                     self.maskS[j+1,i] = 0.0
                     
         self.ndofZ = self.maskZ.sum().astype(int)
+        
+        print("Construction report")
+        print(f"nDOF (C) : {self.ndofC}")
+        print(f"nDOF (Z) : {self.ndofZ}")
 
 
     def circularDemo(self,dx=1.0,dy=1.0,nx=500,ny=500):
@@ -726,6 +733,32 @@ class model:
         toc = time.perf_counter()
         runtime = toc-tic
         print(f"[Dirichlet modes] eigsh runtime : {runtime:0.4f} s")
+       
+        sgridZ = ma.masked_array( np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=np.float32 )
+        sgrid = ma.masked_array( np.zeros(self.maskZ.shape), mask=abs(self.maskC - 1.0), dtype=np.float32 )
+        ny, nx = self.maskZ.shape
+        eigenvalues = np.zeros( (nmodes), dtype=np.float32 )
+        eigenmodes = np.zeros( (nmodes,ny,nx), dtype=np.float32 )
+        
+        for k in range(0,nmodes):
+            ev = 1.0/evals_d[k] + deShift
+            if np.abs(ev-deShift) < np.abs(zeroTol):
+               eigenvalues[k] = 0.0
+            else:
+               eigenvalues[k] = ev
+               
+            # Interpolate the dirichlet modes from the vorticity points
+            # to the tracer points and store the result in sgrid
+            sgridZ[~sgridZ.mask] = evecs_d[:,k]
+            f = sgridZ.data*self.maskZ          
+            g = kernels.vorticityToTracer(f)*self.maskC
+            
+            # Normalize so that the area integral is 1
+            mag = np.sqrt(np.sum(g*g*self.rac))
+            eigenmodes[k,:,:] = g/mag
+        
+        self.d_eigenvalues = eigenvalues
+        self.d_eigenmodes = eigenmodes
 
         print("[Neumann modes] Starting eigenvalue search")
         tic = time.perf_counter()
@@ -736,40 +769,28 @@ class model:
         toc = time.perf_counter()
         runtime = toc-tic
         print(f"[Neumann modes] eigsh runtime : {runtime:0.4f} s")
-
-        # Gather and sort the eigenpairs into a super set
-        sgridZ = ma.masked_array( np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=np.float32 )
-        sgrid = ma.masked_array( np.zeros(self.maskZ.shape), mask=abs(self.maskC - 1.0), dtype=np.float32 )
-        ny, nx = self.maskZ.shape
-        eigenvalues = np.zeros( (nmodes*2), dtype=np.float32 )
-        eigenmodes = np.zeros( (nmodes*2,ny,nx), dtype=np.float32 )
-     
         
+        eigenvalues = np.zeros( (nmodes), dtype=np.float32 )
+        eigenmodes = np.zeros( (nmodes,ny,nx), dtype=np.float32 )
         for k in range(0,nmodes):
-            eigenvalues[k] = -(1.0/evals_d[k] + deShift) # Change the sign of the eigenvalues
-            # Interpolate the dirichlet modes from the vorticity points
-            # to the tracer points and store the result in sgrid
-            sgridZ[~sgridZ.mask] = evecs_d[:,k]
-            f = sgridZ.data*self.maskZ          
-            g = kernels.vorticityToTracer(f)*self.maskC
-            
-            # Normalize so that the area integral is 1
-            mag = np.sqrt(np.sum(g*g*self.rac))
-            eigenmodes[k,:,:] = g/mag
-            
-        for k in range(0,nmodes):
-            eigenvalues[k+nmodes] = -(1.0/evals_n[k] + neShift) # Change the sign of the eigenvalues
+            ev = 1.0/evals_n[k] + neShift
+            if np.abs(ev-neShift) < np.abs(zeroTol):
+               eigenvalues[k] = 0.0
+            else:
+               eigenvalues[k] = ev
+               
             sgrid[~sgrid.mask] = evecs_n[:,k]
             g = sgrid.data*self.maskC
-            
-           # Normalize so that the area integral is 1
             mag = np.sqrt(np.sum(g*g*self.rac))
-            eigenmodes[k+nmodes,:,:] = g/mag
-            
+            eigenmodes[k,:,:] = g/mag
+        
+        self.n_eigenvalues = eigenvalues
+        self.n_eigenmodes = eigenmodes
+        
         # Sort the eigenvalues
-        ind = np.argsort(eigenvalues)      
-        self.eigenvalues = eigenvalues[ind]
-        self.eigenmodes = eigenmodes[ind,:,:]
+        #ind = np.argsort(eigenvalues)      
+        #self.eigenvalues = eigenvalues[ind]
+        #self.eigenmodes = eigenmodes[ind,:,:]
                 
         
     def vectorProjection( self, u, v ):
@@ -778,8 +799,8 @@ class model:
         import xnma.kernels as kernels
         # if the eigenmodes have not been found
         # find them, using the default parameters
-        if (self.eigenmodes is None) :
-            self.findEigenmodes()
+       # if (self.eigenmodes is None) :
+       #     self.findEigenmodes()
             
         print("Calculating projection of u,v")
         
@@ -794,43 +815,64 @@ class model:
        
         vorticity = kernels.vorticityToTracer(curlU)*self.maskC
         
-        nmodes = self.eigenvalues.shape[0]
+        nmodes = self.d_eigenvalues.shape[0]
         ny, nx = u.shape
-        f_d = np.zeros( (nmodes), dtype=np.float32 )
-        f_v = np.zeros( (nmodes), dtype=np.float32 )
+        f_d = np.zeros( (nmodes,2), dtype=np.float32 )
+        f_v = np.zeros( (nmodes,2), dtype=np.float32 )
         
         for k in range(0,nmodes):
-          # Calculate the projection coefficients
-          f_d[k] = np.sum(divergence*np.squeeze(self.eigenmodes[k,:,:])*self.rac)
-          f_v[k] = np.sum(vorticity*np.squeeze(self.eigenmodes[k,:,:])*self.rac)
+           # Calculate the projection coefficients
+           f_d[k,0] = np.sum(divergence*np.squeeze(self.d_eigenmodes[k,:,:])*self.rac) # dirichlet projection (\alpha_n * \tau_n)
+           f_v[k,0] = np.sum(vorticity*np.squeeze(self.d_eigenmodes[k,:,:])*self.rac) # dirichlet projection (\beta_n * \tau_n)
+           f_d[k,1] = np.sum(divergence*np.squeeze(self.n_eigenmodes[k,:,:])*self.rac) # neumann projection (\alpha_n * \tau_n)
+           f_v[k,1] = np.sum(vorticity*np.squeeze(self.n_eigenmodes[k,:,:])*self.rac) # neumann projection (\beta_n * \tau_n)
        
         # Calculate the orthogonality matrix
-        q = np.zeros( (nmodes,nmodes), dtype=np.float32 )
+        #q = np.zeros( (nmodes,nmodes), dtype=np.float32 )
 
-        for row in range(0,nmodes):
-            g = np.squeeze(self.eigenmodes[row,:,:])
-            for col in range(0,nmodes):
-                f = np.squeeze(self.eigenmodes[col,:,:])
-                proj = np.sum(f*g*self.rac)
-                q[row,col] = proj
+        #for row in range(0,nmodes):
+        #    g = np.squeeze(self.eigenmodes[row,:,:])
+        #    for col in range(0,nmodes):
+        #        f = np.squeeze(self.eigenmodes[col,:,:])
+        #        proj = np.sum(f*g*self.rac)
+        #        q[row,col] = proj
                 
         # Invert the orthogonality matrix
-        qInv = np.linalg.inv(q)
-        d_m = np.matmul(qInv,f_d)
-        v_m = np.matmul(qInv,f_v)
+        #qInv = np.linalg.inv(q)
+        #d_m = np.matmul(qInv,f_d)
+        #v_m = np.matmul(qInv,f_v)
           
-        proj_d = np.zeros( (ny,nx), dtype=np.float32 )
-        proj_v = np.zeros( (ny,nx), dtype=np.float32 )
+        proj_d = np.zeros( (ny,nx,2), dtype=np.float32 )
+        proj_v = np.zeros( (ny,nx,2), dtype=np.float32 )
+        alpha = np.zeros( (nmodes,2), dtype=np.float32 )
+        beta = np.zeros( (nmodes,2), dtype=np.float32 )
         for k in range(0,nmodes):
-           if self.eigenvalues[k] != 0.0:
-             d_m[k] = d_m[k]/self.eigenvalues[k]
-             v_m[k] = v_m[k]/self.eigenvalues[k]
+          # if self.d_eigenvalues[k] != 0.0:
+             #d_m[k] = d_m[k]/self.eigenvalues[k]
+             #v_m[k] = v_m[k]/self.eigenvalues[k]
              # Calculate the projection
-             proj_d += d_m[k]*np.squeeze(self.eigenmodes[k,:,:])
-             proj_v += v_m[k]*np.squeeze(self.eigenmodes[k,:,:])
+           proj_d[:,:,0] += f_d[k,0]*np.squeeze(self.d_eigenmodes[k,:,:])
+           proj_v[:,:,0] += f_v[k,0]*np.squeeze(self.d_eigenmodes[k,:,:])
+           proj_d[:,:,1] += f_d[k,1]*np.squeeze(self.n_eigenmodes[k,:,:])
+           proj_v[:,:,1] += f_v[k,1]*np.squeeze(self.n_eigenmodes[k,:,:])
+           
+           if np.abs(self.d_eigenvalues[k]) > zeroTol: 
+              alpha[k,0] = f_d[k,0]/self.d_eigenvalues[k]
+              beta[k,0] = f_v[k,0]/self.d_eigenvalues[k]
+           else: # Zero eigenmode - this gets the mean value
+              alpha[k,0] = f_d[k,0]/np.sum(self.rac)
+              beta[k,0] = f_v[k,0]/np.sum(self.rac)
+             
+              
+           if np.abs(self.n_eigenvalues[k]) > zeroTol:
+              alpha[k,1] = f_d[k,1]/self.n_eigenvalues[k]
+              beta[k,1] = f_v[k,1]/self.n_eigenvalues[k]
+           else: # Zero eigenmode - this gets the mean value
+              alpha[k,1] = f_d[k,1]/np.sum(self.rac)
+              beta[k,1] = f_v[k,1]/np.sum(self.rac)
           
         
-        return d_m, divergence, v_m, vorticity, proj_d, proj_v
+        return f_d, f_v, proj_d, proj_v, divergence, vorticity, alpha, beta
         
         
          
