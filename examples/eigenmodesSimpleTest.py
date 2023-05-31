@@ -26,8 +26,8 @@ def main():
 
     Lx = 1.0
     Ly = 1.0
-    nX = 13
-    nY = 13
+    nX = 103
+    nY = 103
     
     dx = Lx/(nX-3)
     dy = Ly/(nY-3)

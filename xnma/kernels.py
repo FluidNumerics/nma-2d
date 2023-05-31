@@ -15,6 +15,23 @@ def vorticityToTracer_stencil( f ):
 def vorticityToTracer( f  ):
     return vorticityToTracer_stencil( f )
 
+@stencil
+def uToTracer_stencil( u ):
+    """Stencil for interpolating u-velocity data onto tracer points"""
+    return 0.5*( u[0,1]+u[0,0] )
+
+@njit(parallel=True,cache=True)
+def uToTracer( u ):
+    return uToTracer_stencil( u )
+    
+@stencil
+def vToTracer_stencil( v ):
+    """Stencil for interpolating v-velocity data onto tracer points"""
+    return 0.5*( v[1,0]+v[0,0] )
+
+@njit(parallel=True,cache=True)
+def vToTracer( v ):
+    return vToTracer_stencil( v )
 
 @stencil
 def vr_stencil( psi, dxg ):

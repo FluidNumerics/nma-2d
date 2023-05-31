@@ -61,6 +61,10 @@ def main():
        # u[j,i] = xg
        # v[j,i] = yg
         
+    # Calculate total energy
+    uc = kernels.uToTracer( u )
+    vc = kernels.uToTracer( v )
+    Etot = np.sum(0.5*(uc*uc + vc*vc)*model.rac*model.maskC)
     
     # Find the projection
     d_m, v_m, proj_d, proj_v, divergence, vorticity, alpha, beta = model.vectorProjection(u,v)
@@ -136,6 +140,78 @@ def main():
     ax.set_ylabel("y")
     plt.colorbar()
     
+    plt.figure(figsize=(10,12))
+    plt.subplots_adjust(hspace=1.0,wspace=0.5)
+    plt.suptitle("simple test - projection differences", fontsize=18, y=0.95)
+    divU = ma.masked_array( divergence, mask=abs(model.maskC - 1.0), dtype=np.float32 )
+    curlU = ma.masked_array( vorticity, mask=abs(model.maskC - 1.0), dtype=np.float32 )
+    projDivUd = ma.masked_array( np.squeeze(proj_d[:,:,0]), mask=abs(model.maskC - 1.0), dtype=np.float32 )
+    projCurlUd = ma.masked_array( np.squeeze(proj_v[:,:,0]), mask=abs(model.maskC - 1.0), dtype=np.float32 )
+    projDivUn = ma.masked_array( np.squeeze(proj_d[:,:,1]), mask=abs(model.maskC - 1.0), dtype=np.float32 )
+    projCurlUn = ma.masked_array( np.squeeze(proj_v[:,:,1]), mask=abs(model.maskC - 1.0), dtype=np.float32 )
+    
+    
+    # add a new subplot iteratively
+    ax = plt.subplot(3,2,1) 
+    plt.pcolor(model.xc, model.yc, divU, vmin=-1, vmax=1)
+    plt.set_cmap("cividis")
+    # chart formatting
+    ax.set_title("divergence")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+    
+    # add a new subplot iteratively
+    ax = plt.subplot(3,2,2) 
+    plt.pcolor(model.xc, model.yc, curlU, vmin=-1, vmax=1)
+    plt.set_cmap("cividis")
+    # chart formatting
+    ax.set_title("curl")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+    
+    # add a new subplot iteratively
+    ax = plt.subplot(3,2,3) 
+    plt.pcolor(model.xc, model.yc, divU-projDivUd)
+    plt.set_cmap("cividis")
+    # chart formatting
+    ax.set_title("dirichlet")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+    
+    # add a new subplot iteratively
+    ax = plt.subplot(3,2,4) 
+    plt.pcolor(model.xc, model.yc, curlU-projCurlUd)
+    plt.set_cmap("cividis")
+    # chart formatting
+    ax.set_title("dirichlet")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+    
+    # add a new subplot iteratively
+    ax = plt.subplot(3,2,5) 
+    plt.pcolor(model.xc, model.yc, divU-projDivUn)
+    plt.set_cmap("cividis")
+    # chart formatting
+    ax.set_title("neumann")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+    
+    # add a new subplot iteratively
+    ax = plt.subplot(3,2,6) 
+    plt.pcolor(model.xc, model.yc, curlU-projCurlUn)
+    plt.set_cmap("cividis")
+    # chart formatting
+    ax.set_title("neumann")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    plt.colorbar()
+    
+    
     
     plt.figure()
     plt.subplots_adjust(hspace=1.0,wspace=0.5)
@@ -153,9 +229,33 @@ def main():
     plt.grid()
     ax.legend(loc='upper right')
 
+   
+
+    # Calculate the energy
+    En = np.zeros( (2,2,nmodes), dtype=np.float32 )
+    En[0,0,:] = np.cumsum(-alpha[:,0]*d_m[:,0]) # Divergence, Dirichlet
+    En[0,1,:] += np.cumsum(-alpha[:,1]*d_m[:,1]) # Divergence, Neumann
+    En[1,0,:] += np.cumsum(-beta[:,0]*v_m[:,0]) # Vorticity, Dirichlet
+    En[1,1,:] += np.cumsum(-beta[:,1]*v_m[:,1]) # Vorticity, Neumann
+        
+    plt.figure()
+    plt.subplots_adjust(hspace=1.0,wspace=0.5)
+    ax = plt.subplot(1,1,1) 
+    plt.plot(np.abs(model.d_eigenvalues),En[0,0,:],label="Divergence (Dirichlet)",marker="o")
+    plt.plot(np.abs(model.n_eigenvalues),En[0,1,:],label="Divergence (Neumann)",marker="o")
+    plt.plot(np.abs(model.d_eigenvalues),En[1,0,:],label="Vorticity(Dirichlet)",marker="o")
+    plt.plot(np.abs(model.n_eigenvalues),En[1,1,:],label="Vorticity (Neumann)",marker="o")
+    plt.plot([0,-model.d_eigenvalues[-1]],[Etot, Etot],'k--',label="Total Energy", )
+    plt.set_cmap("cividis")
+    # chart formatting
+    ax.set_title("Integrated Spectra")
+    ax.set_xlabel("$\lambda$")
+    ax.set_ylabel("energy")
+    #ax.set_yscale('log')
+    plt.grid()
+    ax.legend(loc='right')
     plt.show()
 
-    
 
 
 if __name__=="__main__":

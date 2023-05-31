@@ -811,7 +811,7 @@ class model:
         
         # Calculate the vorticity
         curlU = kernels.vorticity( u, v, self.dxc,
-                                  self.dyc, self.raz )
+                                  self.dyc, self.raz )*self.maskZ
        
         vorticity = kernels.vorticityToTracer(curlU)*self.maskC
         
