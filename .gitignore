@@ -3,3 +3,4 @@ xnma.egg-info
 build
 public
 __pycache__
+*.png

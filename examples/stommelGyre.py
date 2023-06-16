@@ -48,7 +48,10 @@ def main():
 
     u = np.zeros((ny, nx), dtype=np.float32)
     v = np.zeros((ny, nx), dtype=np.float32)
+    psi = np.zeros((ny, nx), dtype=np.float32)
 
+    pi = np.pi
+    L = 0.25
     # Fill in example u,v
     for j in range(0, model.yg.shape[0]):
         yg = model.yg[j]
@@ -56,8 +59,20 @@ def main():
         for i in range(0, model.xg.shape[0]):
             xg = model.xg[i]
             xc = model.xc[i]
-            u[j,i] = xg
-            v[j,i] = 0.0
+            psi[j, i] = -pi * np.sin(pi * yg) * (1.0 - xg) * (np.exp(-xg / L) - 1.0)
+
+    for j in range(0, model.yg.shape[0] - 1):
+        for i in range(0, model.xg.shape[0]):
+            u[j, i] = -(psi[j + 1, i] - psi[j, i]) / dy
+
+    for j in range(0, model.yg.shape[0]):
+        for i in range(0, model.xg.shape[0] - 1):
+            v[j, i] = (psi[j, i + 1] - psi[j, i]) / dx
+
+        # u[j,i] = xg**2 + yc**2
+        # v[j,i] = xc**2 - yg**2
+        # u[j,i] = xg
+        # v[j,i] = yg
 
     u = u * model.maskW
     v = v * model.maskS

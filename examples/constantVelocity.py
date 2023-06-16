@@ -21,7 +21,7 @@ import numpy.ma as ma
 import sys
 import time
 
-nmodes = 120
+nmodes = 80
 # Set model dimensions
 Lx = 1.0
 Ly = 1.0
@@ -51,20 +51,16 @@ def main():
 
     # Fill in example u,v
     for j in range(0, model.yg.shape[0]):
-        yg = model.yg[j]
-        yc = model.yc[j]
         for i in range(0, model.xg.shape[0]):
-            xg = model.xg[i]
-            xc = model.xc[i]
-            u[j,i] = xg
-            v[j,i] = 0.0
+            u[j, i] = 1.0
+            v[j, i] = 0.0
 
-    u = u * model.maskW
-    v = v * model.maskS
+ #   u = u * model.maskW
+ #   v = v * model.maskS
 
     # Calculate total energy
     uc = kernels.UtoT(u)
-    vc = kernels.UtoT(v)
+    vc = kernels.VtoT(v)
     Etot = np.sum(0.5 * (uc * uc + vc * vc) * model.rac * model.maskC)
 
     # Find the projection
@@ -85,7 +81,7 @@ def main():
 
     # add a new subplot iteratively
     ax = plt.subplot(1, 2, 1)
-    plt.pcolor(model.xg, model.yc, u)  # , vmin=-1, vmax=1)
+    plt.pcolor(model.xg, model.yc, u, vmin=-1, vmax=1)
     plt.set_cmap("cividis")
     # chart formatting
     ax.set_title("u")
@@ -95,7 +91,7 @@ def main():
 
     # add a new subplot iteratively
     ax = plt.subplot(1, 2, 2)
-    plt.pcolor(model.xc, model.yg, v)  # , vmin=-1, vmax=1)
+    plt.pcolor(model.xc, model.yg, v, vmin=-1, vmax=1)
     plt.set_cmap("cividis")
     # chart formatting
     ax.set_title("v")
