@@ -122,8 +122,8 @@ class model:
                     self.maskS[j + 1, i] = 0.0
 
         self.ndofZ = self.maskZ.sum().astype(int)
-        self.hFacW = self.maskW
-        self.hFacS = self.maskS
+        #self.hFacW = self.maskW
+        #self.hFacS = self.maskS
         
         print("Construction report")
         print(f"nDOF (C) : {self.ndofC}")
@@ -953,8 +953,6 @@ class model:
         # Calculate the vorticity
         vorticity = kernels.vorticity(u, v, self.dxc, self.dyc, self.raz) * self.maskZ
 
-        # vorticity = kernels.vorticityToTracer(curlU)*self.maskC
-
         nmodes = self.d_eigenvalues.shape[0]
         ny, nx = u.shape
         d_m = np.zeros(
@@ -993,19 +991,18 @@ class model:
         rotEnergy = np.zeros((nmodes), dtype=np.float32)
         divEnergy = np.zeros((nmodes), dtype=np.float32)
         for k in range(0, nmodes):
-            # Calculate the projection of the divergence and vorticity
-            # This helps establish a projection error
-            proj_d += d_m[k] * np.squeeze(self.n_eigenmodes[k, :, :])
-            proj_v += v_m[k] * np.squeeze(self.d_eigenmodes[k, :, :])
-
+            
+           
             # Rotational Energy (Dirichlet Modes)
-            # Only calculate energy for eigenmodes with non-zero eigenvalue
-            if np.abs(self.d_eigenvalues[k]) > zeroTol:
-                rotEnergy[k] = -0.5 * v_m[k] * v_m[k] / self.d_eigenvalues[k]
+            rotEnergy[k] = -0.5 * v_m[k] * v_m[k] / self.d_eigenvalues[k]
+            # projection
+            proj_v += v_m[k] * np.squeeze(self.d_eigenmodes[k, :, :])/ self.d_eigenvalues[k]
 
             # Divergent Energy (Neumann Modes)
             # Only calculate energy for eigenmodes with non-zero eigenvalue
             if np.abs(self.n_eigenvalues[k]) > zeroTol:
                 divEnergy[k] = -0.5 * d_m[k] * d_m[k] / self.n_eigenvalues[k]
+                # projection
+                proj_d += d_m[k] * np.squeeze(self.n_eigenmodes[k, :, :]) / self.n_eigenvalues[k]
 
         return rotEnergy, divEnergy, proj_d, proj_v, divergence, vorticity, d_m, v_m

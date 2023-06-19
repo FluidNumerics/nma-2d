@@ -25,8 +25,8 @@ nmodes = 80
 # Set model dimensions
 Lx = 1.0
 Ly = 1.0
-nx = 28
-ny = 28
+nx = 13
+ny = 13
 
 # Calculate the grid spacing
 # so that the western most "wet"
@@ -132,7 +132,7 @@ def main():
     plt.pcolor(model.xc, model.yc, projDivUn)  # , vmin=-1, vmax=1)
     plt.set_cmap("cividis")
     # chart formatting
-    ax.set_title("divergence (neumann projection)")
+    ax.set_title("divergent potential (neumann projection)")
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     plt.colorbar()
@@ -142,7 +142,7 @@ def main():
     plt.pcolor(model.xg, model.yg, projCurlUd)  # , vmin=-1, vmax=1)
     plt.set_cmap("cividis")
     # chart formatting
-    ax.set_title("vorticity (dirichlet projection)")
+    ax.set_title("rotational potential (dirichlet projection)")
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     plt.colorbar()
