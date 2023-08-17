@@ -40,11 +40,12 @@
 #
 #
 
-zeroTol = 1e-6
+import numpy as np
+zeroTol = 1e-12
 
 
 class model:
-    def __init__(self):
+    def __init__(self, prec=np.float32):
         self.ds = None
         self.grid = None
 
@@ -55,8 +56,9 @@ class model:
 
         self.eigenmodes = None  # Defined on tracer points
         self.eigenvalues = None  #
+        self.prec = prec
 
-    def construct(self, dx=1.0, dy=1.0, nx=500, ny=500):
+    def construct(self, dx=1.0, dy=1.0, nx=500, ny=500, prec=np.float32):
         """
         Constructs a quadrilateral domain with uniform grid
         spacing.
@@ -69,20 +71,21 @@ class model:
         import numpy as np
         from numpy import ma
 
-        self.dxc = np.ones((ny, nx)).astype(np.float32) * dx
-        self.dxg = np.ones((ny, nx)).astype(np.float32) * dx
+        self.prec = prec
+        self.dxc = np.ones((ny, nx)).astype(self.prec) * dx
+        self.dxg = np.ones((ny, nx)).astype(self.prec) * dx
 
-        self.dyc = np.ones((ny, nx)).astype(np.float32) * dy
-        self.dyg = np.ones((ny, nx)).astype(np.float32) * dy
+        self.dyc = np.ones((ny, nx)).astype(self.prec) * dy
+        self.dyg = np.ones((ny, nx)).astype(self.prec) * dy
 
-        self.raz = np.ones((ny, nx)).astype(np.float32) * dx * dy
-        self.rac = np.ones((ny, nx)).astype(np.float32) * dx * dy
+        self.raz = np.ones((ny, nx)).astype(self.prec) * dx * dy
+        self.rac = np.ones((ny, nx)).astype(self.prec) * dx * dy
 
-        dxl = np.ones((nx)).astype(np.float32) * dx
+        dxl = np.ones((nx)).astype(self.prec) * dx
         self.xg = dxl.cumsum() - 2 * dx
         self.xc = self.xg + dx * 0.5
 
-        dyl = np.ones((ny)).astype(np.float32) * dy
+        dyl = np.ones((ny)).astype(self.prec) * dy
         self.yg = dyl.cumsum() - 2 * dy
         self.yc = self.yg + dy * 0.5
 
@@ -143,20 +146,20 @@ class model:
         import numpy as np
         from numpy import ma
 
-        self.dxc = np.ones((ny, nx)).astype(np.float32) * dx
-        self.dxg = np.ones((ny, nx)).astype(np.float32) * dx
+        self.dxc = np.ones((ny, nx)).astype(self.prec) * dx
+        self.dxg = np.ones((ny, nx)).astype(self.prec) * dx
 
-        self.dyc = np.ones((ny, nx)).astype(np.float32) * dy
-        self.dyg = np.ones((ny, nx)).astype(np.float32) * dy
+        self.dyc = np.ones((ny, nx)).astype(self.prec) * dy
+        self.dyg = np.ones((ny, nx)).astype(self.prec) * dy
 
-        self.raz = np.ones((ny, nx)).astype(np.float32) * dx * dy
-        self.rac = np.ones((ny, nx)).astype(np.float32) * dx * dy
+        self.raz = np.ones((ny, nx)).astype(self.prec) * dx * dy
+        self.rac = np.ones((ny, nx)).astype(self.prec) * dx * dy
 
-        dxl = np.ones((nx)).astype(np.float32) * dx
+        dxl = np.ones((nx)).astype(self.prec) * dx
         self.xg = dxl.cumsum() - dx
         self.xc = self.xg + dx * 0.5
 
-        dyl = np.ones((ny)).astype(np.float32) * dy
+        dyl = np.ones((ny)).astype(self.prec) * dy
         self.yg = dyl.cumsum() - dy
         self.yc = self.yg + dy * 0.5
 
@@ -194,20 +197,20 @@ class model:
         import numpy as np
         from numpy import ma
 
-        self.dxc = np.ones((ny, nx)).astype(np.float32) * dx
-        self.dxg = np.ones((ny, nx)).astype(np.float32) * dx
+        self.dxc = np.ones((ny, nx)).astype(self.prec) * dx
+        self.dxg = np.ones((ny, nx)).astype(self.prec) * dx
 
-        self.dyc = np.ones((ny, nx)).astype(np.float32) * dy
-        self.dyg = np.ones((ny, nx)).astype(np.float32) * dy
+        self.dyc = np.ones((ny, nx)).astype(self.prec) * dy
+        self.dyg = np.ones((ny, nx)).astype(self.prec) * dy
 
-        self.raz = np.ones((ny, nx)).astype(np.float32) * dx * dy
-        self.rac = np.ones((ny, nx)).astype(np.float32) * dx * dy
+        self.raz = np.ones((ny, nx)).astype(self.prec) * dx * dy
+        self.rac = np.ones((ny, nx)).astype(self.prec) * dx * dy
 
-        dxl = np.ones((nx)).astype(np.float32) * dx
+        dxl = np.ones((nx)).astype(self.prec) * dx
         self.xg = dxl.cumsum() - dx
         self.xc = self.xg + dx * 0.5
 
-        dyl = np.ones((ny)).astype(np.float32) * dy
+        dyl = np.ones((ny)).astype(self.prec) * dy
         self.yg = dyl.cumsum() - dy
         self.yc = self.yg + dy * 0.5
 
@@ -304,16 +307,16 @@ class model:
         self.grid = xgcm.Grid(self.ds)
 
         # Copy data to numpy arrays (for numba acceleration)
-        self.xc = self.ds.XC.to_numpy().astype(np.float32)
-        self.yc = self.ds.YC.to_numpy().astype(np.float32)
-        self.xg = self.ds.XG.to_numpy().astype(np.float32)
-        self.yg = self.ds.YG.to_numpy().astype(np.float32)
-        self.dxc = self.ds.dxC.to_numpy().astype(np.float32)
-        self.dyc = self.ds.dyC.to_numpy().astype(np.float32)
-        self.dxg = self.ds.dxG.to_numpy().astype(np.float32)
-        self.dyg = self.ds.dyG.to_numpy().astype(np.float32)
-        self.raz = self.ds.rAz.to_numpy().astype(np.float32)
-        self.rac = self.ds.rA.to_numpy().astype(np.float32)
+        self.xc = self.ds.XC.to_numpy().astype(self.prec)
+        self.yc = self.ds.YC.to_numpy().astype(self.prec)
+        self.xg = self.ds.XG.to_numpy().astype(self.prec)
+        self.yg = self.ds.YG.to_numpy().astype(self.prec)
+        self.dxc = self.ds.dxC.to_numpy().astype(self.prec)
+        self.dyc = self.ds.dyC.to_numpy().astype(self.prec)
+        self.dxg = self.ds.dxG.to_numpy().astype(self.prec)
+        self.dyg = self.ds.dyG.to_numpy().astype(self.prec)
+        self.raz = self.ds.rAz.to_numpy().astype(self.prec)
+        self.rac = self.ds.rA.to_numpy().astype(self.prec)
 
         zd = -abs(depth)  # ensure that depth is negative value
         self.U = self.ds.U.interp(Z=[zd], method="nearest")
@@ -323,19 +326,19 @@ class model:
             self.ds.hFacC.interp(Z=[zd], method="nearest")
             .squeeze()
             .to_numpy()
-            .astype(np.float32)
+            .astype(self.prec)
         )
         self.hFacW = (
             self.ds.hFacW.interp(Z=[zd], method="nearest")
             .squeeze()
             .to_numpy()
-            .astype(np.float32)
+            .astype(self.prec)
         )
         self.hFacS = (
             self.ds.hFacS.interp(Z=[zd], method="nearest")
             .squeeze()
             .to_numpy()
-            .astype(np.float32)
+            .astype(self.prec)
         )
 
         ny, nx = self.hFacC.shape
@@ -382,7 +385,7 @@ class model:
         self.ndofC = self.maskC.sum().astype(int)
 
     def LapZInv_PCCG(
-        self, b, s0=None, pcitermax=20, pctolerance=1e-2, itermax=1500, tolerance=1e-4
+        self, b, s0=None, pcitermax=20, pctolerance=1e-2, itermax=1500, tolerance=1e-4, shift=0.0
     ):
         """Uses preconditioned conjugate gradient to solve L s = b,
         where `L s` is the Laplacian on vorticity points applied to s
@@ -406,18 +409,19 @@ class model:
         sk = sk * self.maskZ
 
         r = kernels.LapZ_Residual(
-            sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz
+            sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz, shift
         )
 
-        d = self.LapZInv_JacobiSolve(r, itermax=pcitermax, tolerance=pctolerance)
+        d = self.LapZInv_JacobiSolve(r, itermax=pcitermax, tolerance=pctolerance, shift=shift)
 
         delta = np.sum(r * d)
-        rmag = np.max(abs(r))
-        r0 = rmag
+        rmag = np.sqrt(np.sum(r*r))
+        bmag = np.sqrt(np.sum(b*b))
+        r0 = np.max([rmag, bmag])
 
         for k in range(0, itermax):
             q = (
-                kernels.LapZ(d, self.dxc, self.dyc, self.dxg, self.dyg, self.raz)
+                kernels.LapZ(d, self.dxc, self.dyc, self.dxg, self.dyg, self.raz, shift)
                 * self.maskZ
             )
 
@@ -426,29 +430,29 @@ class model:
             sk += alpha * d
             if k % 50 == 0:
                 r = kernels.LapZ_Residual(
-                    sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz
+                    sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz, shift
                 )
             else:
                 r -= alpha * q
 
-            x = self.LapZInv_JacobiSolve(r, itermax=pcitermax, tolerance=pctolerance)
+            x = self.LapZInv_JacobiSolve(r, itermax=pcitermax, tolerance=pctolerance, shift=shift)
 
-            rmag = np.max(abs(r))
+            rmag = np.sqrt(np.sum(r*r))
             deltaOld = delta
             delta = np.sum(r * x)
             beta = delta / deltaOld
             d = x + beta * d
-            if rmag / r0 <= tolerance:
+            if rmag <= tolerance*r0:
                 break
 
-        if rmag / r0 > tolerance:
+        if rmag > tolerance*r0:
             print(
                 f"Conjugate gradient method did not converge in {k+1} iterations : {delta}"
             )
 
         return sk
 
-    def LapZInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4):
+    def LapZInv_JacobiSolve(self, b, s0=None, itermax=1000, tolerance=1e-4, shift=0.0):
         """Performs Jacobi iterations to iteratively solve L s = b,
         where `L s` is the Laplacian on vorticity points with homogeneous Dirichlet
         boundary conditions applied to s
@@ -468,20 +472,20 @@ class model:
 
         sk = sk * self.maskZ
         r = kernels.LapZ_Residual(
-            sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz
+            sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz, shift
         )
 
         for k in range(0, itermax):
             ds = kernels.LapZ_JacobiDinv(
-                r, self.dxc, self.dyc, self.dxg, self.dyg, self.raz
+                r, self.dxc, self.dyc, self.dxg, self.dyg, self.raz, shift
             )
 
             dsmag = np.max(abs(ds))
             smag = np.max(abs(sk))
-            if smag <= np.finfo(np.float32).eps:
+            if smag <= np.finfo(self.prec).eps:
                 smag == np.max(abs(b))
 
-            if smag > np.finfo(np.float32).eps:
+            if smag > np.finfo(self.prec).eps:
                 if dsmag / smag <= tolerance:
                     break
 
@@ -489,7 +493,7 @@ class model:
             sk += ds
 
             r = kernels.LapZ_Residual(
-                sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz
+                sk, b, self.maskZ, self.dxc, self.dyc, self.dxg, self.dyg, self.raz, shift
             )
 
         return sk
@@ -550,8 +554,9 @@ class model:
             )
 
         delta = np.sum(r * d)
-        rmag = np.max(abs(r))
-        r0 = rmag
+        rmag = np.sqrt(np.sum(r*r))
+        bmag = np.sqrt(np.sum(b*b))
+        r0 = np.max([rmag, bmag])
 
         for k in range(0, itermax):
             # print(f"(k,r) : ({k},{rmag})")
@@ -597,15 +602,15 @@ class model:
                     r, itermax=pcitermax, tolerance=pctolerance, dShift=dShift
                 )
 
-            rmag = np.max(abs(r))
+            rmag = np.sqrt(np.sum(r*r))
             deltaOld = delta
             delta = np.sum(r * x)
             beta = delta / deltaOld
             d = x + beta * d
-            if rmag / r0 <= tolerance:
+            if rmag <= tolerance*r0 :
                 break
 
-        if rmag / r0 > tolerance:
+        if rmag > tolerance*r0:
             print(
                 f"Conjugate gradient method did not converge in {k+1} iterations : {rmag}"
             )
@@ -661,10 +666,10 @@ class model:
 
             dsmag = np.max(abs(ds))
             smag = np.max(abs(sk))
-            if smag <= np.finfo(np.float32).eps:
+            if smag <= np.finfo(self.prec).eps:
                 smag == np.max(abs(b))
 
-            if smag > np.finfo(np.float32).eps:
+            if smag > np.finfo(self.prec).eps:
                 if dsmag / smag <= tolerance:
                     break
 
@@ -698,7 +703,7 @@ class model:
         # x comes in as a 1-D array in "DOF" format
         # we need to convert it to a 2-D array consistent with the model grid
         xgrid = ma.masked_array(
-            np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=np.float32
+            np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=self.prec
         )
         xgrid[~xgrid.mask] = x  # Set interior values to b
 
@@ -707,7 +712,7 @@ class model:
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array(
-            Lx, mask=abs(self.maskZ - 1.0), dtype=np.float32
+            Lx, mask=abs(self.maskZ - 1.0), dtype=self.prec
         ).compressed()
 
     def laplacianZInverse(self, b, dShift):
@@ -725,24 +730,25 @@ class model:
         # Use the model.b attribute to push the DOF formatted data
 
         bgrid = ma.masked_array(
-            np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=np.float32
+            np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=self.prec
         )
         bgrid[~bgrid.mask] = b  # Set interior values to b
 
-        x = np.ones(self.maskZ.shape, dtype=np.float32)
+        x = np.ones(self.maskZ.shape, dtype=self.prec)
         # Invert the laplacian
         x = self.LapZInv_PCCG(
             bgrid.data,
             s0=None,
             pcitermax=20,
             pctolerance=1e-2,
-            itermax=1500,
-            tolerance=1e-12,
+            itermax=3000,
+            tolerance=1e-14,
+            shift=dShift
         )
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array(
-            x, mask=abs(self.maskZ - 1.0), dtype=np.float32
+            x, mask=abs(self.maskZ - 1.0), dtype=self.prec
         ).compressed()
 
     def laplacianC(self, x, dShift):
@@ -756,7 +762,7 @@ class model:
         # x comes in as a 1-D array in "DOF" format
         # we need to convert it to a 2-D array consistent with the model grid
         xgrid = ma.masked_array(
-            np.zeros(self.maskC.shape), mask=abs(self.maskC - 1.0), dtype=np.float32
+            np.zeros(self.maskC.shape), mask=abs(self.maskC - 1.0), dtype=self.prec
         )
         xgrid[~xgrid.mask] = x  # Set interior values to b
 
@@ -775,7 +781,7 @@ class model:
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array(
-            Lx, mask=abs(self.maskC - 1.0), dtype=np.float32
+            Lx, mask=abs(self.maskC - 1.0), dtype=self.prec
         ).compressed()
 
     def laplacianCInverse(self, b, dShift):
@@ -792,28 +798,28 @@ class model:
         # Use the model.b attribute to push the DOF formatted data
 
         bgrid = ma.masked_array(
-            np.zeros(self.maskC.shape), mask=abs(self.maskC - 1.0), dtype=np.float32
+            np.zeros(self.maskC.shape), mask=abs(self.maskC - 1.0), dtype=self.prec
         )
         bgrid[~bgrid.mask] = b  # Set interior values to b
 
-        x = np.ones(self.maskC.shape, dtype=np.float32)
+        x = np.ones(self.maskC.shape, dtype=self.prec)
         # Invert the laplacian
         x = self.LapCInv_PCCG(
             bgrid.data,
             s0=None,
             pcitermax=20,
             pctolerance=1e-2,
-            itermax=1500,
-            tolerance=1e-12,
+            itermax=3000,
+            tolerance=1e-14,
             dShift=dShift,
         )
 
         # Mask the data, so that we can return a 1-D array of unmasked values
         return ma.masked_array(
-            x, mask=abs(self.maskC - 1.0), dtype=np.float32
+            x, mask=abs(self.maskC - 1.0), dtype=self.prec
         ).compressed()
 
-    def findDirichletModes(self, nmodes=10, tolerance=0, shift=1e-2):
+    def findDirichletModes(self, nmodes=10, tolerance=0, shift=0):
         """Find the eigenpairs associated with the Laplacian operator on
         vorticity points with homogeneous Dirichlet boundary conditions.
 
@@ -827,7 +833,7 @@ class model:
 
         shape = (self.ndofZ, self.ndofZ)
         Linv = LinearOperator(
-            shape, matvec=lambda b: self.laplacianZInverse(b, shift), dtype=np.float32
+            shape, matvec=lambda b: self.laplacianZInverse(b, shift), dtype=self.prec
         )
 
         print("[Dirichlet modes] Starting eigenvalue search")
@@ -838,11 +844,11 @@ class model:
         print(f"[Dirichlet modes] eigsh runtime : {runtime:0.4f} s")
 
         sgrid = ma.masked_array(
-            np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=np.float32
+            np.zeros(self.maskZ.shape), mask=abs(self.maskZ - 1.0), dtype=self.prec
         )
         ny, nx = self.maskZ.shape
-        eigenvalues = np.zeros((nmodes), dtype=np.float32)
-        eigenmodes = np.zeros((nmodes, ny, nx), dtype=np.float32)
+        eigenvalues = np.zeros((nmodes), dtype=self.prec)
+        eigenmodes = np.zeros((nmodes, ny, nx), dtype=self.prec)
 
         for k in range(0, nmodes):
             ev = 1.0 / evals[k] + shift
@@ -877,7 +883,7 @@ class model:
 
         shape = (self.ndofC, self.ndofC)
         Linv = LinearOperator(
-            shape, matvec=lambda b: self.laplacianCInverse(b, shift), dtype=np.float32
+            shape, matvec=lambda b: self.laplacianCInverse(b, shift), dtype=self.prec
         )
         print("[Neumann modes] Starting eigenvalue search")
         tic = time.perf_counter()
@@ -887,12 +893,12 @@ class model:
         print(f"[Neumann modes] eigsh runtime : {runtime:0.4f} s")
 
         ny, nx = self.maskC.shape
-        eigenvalues = np.zeros((nmodes), dtype=np.float32)
-        eigenmodes = np.zeros((nmodes, ny, nx), dtype=np.float32)
+        eigenvalues = np.zeros((nmodes), dtype=self.prec)
+        eigenmodes = np.zeros((nmodes, ny, nx), dtype=self.prec)
         sgrid = ma.masked_array(
-            np.zeros(self.maskC.shape), mask=abs(self.maskC - 1.0), dtype=np.float32
+            np.zeros(self.maskC.shape), mask=abs(self.maskC - 1.0), dtype=self.prec
         )
-
+        
         for k in range(0, nmodes):
             ev = 1.0 / evals[k] + shift
             if np.abs(ev) < np.abs(zeroTol):
@@ -926,7 +932,7 @@ class model:
         https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.eigsh.html
 
         """
-
+        
         self.findDirichletModes(nmodes, tolerance, deShift)
         self.findNeumannModes(nmodes, tolerance, neShift)
 
@@ -955,17 +961,24 @@ class model:
 
         nmodes = self.d_eigenvalues.shape[0]
         ny, nx = u.shape
-        d_m = np.zeros(
-            (nmodes), dtype=np.float32
-        )  # Projection of divergence onto the neumann modes
-        v_m = np.zeros(
-            (nmodes), dtype=np.float32
-        )  # Projection of vorticity onto the dirichlet modes
+        db_m = np.zeros(
+            (nmodes), dtype=self.prec
+        )  # Projection of divergence onto the neumann modes (boundary)
+        di_m = np.zeros(
+            (nmodes), dtype=self.prec
+        )  # Projection of divergence onto the neumann modes (interior)
+        vb_m = np.zeros(
+            (nmodes), dtype=self.prec
+        ) # Projection of vorticity onto the dirichlet modes (boundary)
+        vi_m = np.zeros(
+            (nmodes), dtype=self.prec
+        )  # Projection of vorticity onto the dirichlet modes (interior)
+
         for k in range(0, nmodes):
-            v_m[k] = np.sum(
+            vi_m[k] = np.sum(
                 vorticity * np.squeeze(self.d_eigenmodes[k, :, :]) * self.raz
             )  # Projection of vorticity onto the dirichlet modes
-            d_m[k] = np.sum(
+            di_m[k] = np.sum(
                 divergence * np.squeeze(self.n_eigenmodes[k, :, :]) * self.rac
             )  # Projection of divergence onto the neumann modes
 
@@ -984,25 +997,25 @@ class model:
                 * self.maskC
             )
             # Subtract the boundary contribution from the divergence coefficients
-            d_m[k] -= np.sum(divUEta * self.rac)
+            db_m[k] = -np.sum(divUEta * self.rac)
 
-        proj_d = np.zeros((ny, nx), dtype=np.float32)
-        proj_v = np.zeros((ny, nx), dtype=np.float32)
-        rotEnergy = np.zeros((nmodes), dtype=np.float32)
-        divEnergy = np.zeros((nmodes), dtype=np.float32)
-        for k in range(0, nmodes):
+        # proj_d = np.zeros((ny, nx), dtype=self.prec)
+        # proj_v = np.zeros((ny, nx), dtype=self.prec)
+        # rotEnergy = np.zeros((nmodes), dtype=self.prec)
+        # divEnergy = np.zeros((nmodes), dtype=self.prec)
+        # for k in range(0, nmodes):
             
            
-            # Rotational Energy (Dirichlet Modes)
-            rotEnergy[k] = -0.5 * v_m[k] * v_m[k] / self.d_eigenvalues[k]
-            # projection
-            proj_v += v_m[k] * np.squeeze(self.d_eigenmodes[k, :, :])/ self.d_eigenvalues[k]
+        #     # Rotational Energy (Dirichlet Modes)
+        #     rotEnergy[k] = -0.5 * v_m[k] * v_m[k] / self.d_eigenvalues[k]
+        #     # projection
+        #     proj_v += v_m[k] * np.squeeze(self.d_eigenmodes[k, :, :])/ self.d_eigenvalues[k]
 
-            # Divergent Energy (Neumann Modes)
-            # Only calculate energy for eigenmodes with non-zero eigenvalue
-            if np.abs(self.n_eigenvalues[k]) > zeroTol:
-                divEnergy[k] = -0.5 * d_m[k] * d_m[k] / self.n_eigenvalues[k]
-                # projection
-                proj_d += d_m[k] * np.squeeze(self.n_eigenmodes[k, :, :]) / self.n_eigenvalues[k]
+        #     # Divergent Energy (Neumann Modes)
+        #     # Only calculate energy for eigenmodes with non-zero eigenvalue
+        #     if np.abs(self.n_eigenvalues[k]) > zeroTol:
+        #         divEnergy[k] = -0.5 * d_m[k] * d_m[k] / self.n_eigenvalues[k]
+        #         # projection
+        #         proj_d += d_m[k] * np.squeeze(self.n_eigenmodes[k, :, :]) / self.n_eigenvalues[k]
 
-        return rotEnergy, divEnergy, proj_d, proj_v, divergence, vorticity, d_m, v_m
+        return di_m, db_m, vi_m, vb_m

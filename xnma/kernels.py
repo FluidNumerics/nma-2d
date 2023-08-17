@@ -168,7 +168,7 @@ def divergence(u, v, dxg, dyg, hfacw, hfacs, rac):
 
 
 @stencil
-def LapZ_stencil(s, dxc, dyc, dxg, dyg, raz):
+def LapZ_stencil(s, dxc, dyc, dxg, dyg, raz, eShift):
     """Stencil for the laplacian on vorticity points"""
 
     a = dyc[0, 0] / dxg[0, 0]
@@ -182,19 +182,19 @@ def LapZ_stencil(s, dxc, dyc, dxg, dyg, raz):
         + c * s[1, 0]
         + d * s[-1, 0]
         - (a + b + c + d) * s[0, 0]
-    ) / raz[0, 0]
+    ) / raz[0, 0]  - eShift * s[0, 0]
 
 
 @njit(parallel=True, cache=True)
-def LapZ(s, dxc, dyc, dxg, dyg, raz):
-    return LapZ_stencil(s, dxc, dyc, dxg, dyg, raz)
+def LapZ(s, dxc, dyc, dxg, dyg, raz, eShift):
+    return LapZ_stencil(s, dxc, dyc, dxg, dyg, raz, eShift)
 
 
 @njit(parallel=True, cache=True)
-def LapZ_Residual(s, b, mask, dxc, dyc, dxg, dyg, raz):
+def LapZ_Residual(s, b, mask, dxc, dyc, dxg, dyg, raz, eShift=0):
     """Calculates the residual for the laplacian"""
 
-    return (b - LapZ(s, dxc, dyc, dxg, dyg, raz)) * mask
+    return (b - LapZ(s, dxc, dyc, dxg, dyg, raz, eShift)) * mask
 
 
 @stencil
@@ -235,18 +235,18 @@ def LapC_Residual(s, b, mask, dxc, dyc, dxg, dyg, maskw, masks, rac, eShift=0):
         (-1, 1),
     )
 )
-def LapZ_JacobiDinv_stencil(s, dxc, dyc, dxg, dyg, raz):
+def LapZ_JacobiDinv_stencil(s, dxc, dyc, dxg, dyg, raz, shift=0.0):
     a = dyc[0, 0] / dxg[0, 0]
     b = dyc[0, -1] / dxg[0, -1]
     c = dxc[0, 0] / dyg[0, 0]
     d = dxc[-1, 0] / dyg[-1, 0]
 
-    return -raz[0, 0] * s[0, 0] / (a + b + c + d)
+    return -raz[0, 0] * s[0, 0] / ((a + b + c + d) + shift*raz[0,0])
 
 
 @njit(parallel=True, cache=True)
-def LapZ_JacobiDinv(s, dxc, dyc, dxg, dyg, raz):
-    return LapZ_JacobiDinv_stencil(s, dxc, dyc, dxg, dyg, raz)
+def LapZ_JacobiDinv(s, dxc, dyc, dxg, dyg, raz, shift=0.0):
+    return LapZ_JacobiDinv_stencil(s, dxc, dyc, dxg, dyg, raz, shift)
 
 
 @stencil(
