@@ -22,8 +22,7 @@ import sys
 import time
 import argparse
 
-#plt.style.use('dark_background')
-plt.style.use('seaborn-v0_8-whitegrid')
+plt.style.use('dark_background')
 plt.switch_backend('agg')
 
 parser = argparse.ArgumentParser(
@@ -152,6 +151,8 @@ def NeumannModes( model ):
 
     return eigenvalues, eigenmodes
 
+
+
 def main():
     # Initialize the nma model
     model = nma.model()
@@ -171,50 +172,62 @@ def main():
 
     u = np.zeros((ny, nx), dtype=prec)
     v = np.zeros((ny, nx), dtype=prec)
-    psi = np.zeros((ny, nx), dtype=prec)
 
     # Fill in example u,v
     for j in range(0, model.yg.shape[0]):
         yg = model.yg[j]
+        yc = model.yc[j]
         for i in range(0, model.xg.shape[0]):
             xg = model.xg[i]
-            psi[j, i] = -np.pi * np.sin(np.pi * yg/Ly) * (1.0 - xg) * (np.exp(-xg / Lx) - 1.0)
-
-    for j in range(0, model.yg.shape[0] - 1):
-        for i in range(0, model.xg.shape[0]):
-            u[j, i] = -(psi[j + 1, i] - psi[j, i]) / dy
-
-    for j in range(0, model.yg.shape[0]):
-        for i in range(0, model.xg.shape[0] - 1):
-            v[j, i] = (psi[j, i + 1] - psi[j, i]) / dx
-    
-    # Plot the stream function
-    plt.figure()
-    plt.contour(model.xg, model.yg, psi, [0.0],
-                colors='white', linestyles='dotted', vmin=0.0, vmax=0.0)
-    plt.contour(model.xg, model.yg, psi, 
-                [-1.0, -0.8, -0.6, -0.4, -0.2, 0.2, 0.4, 0.6, 0.8, 1.0], 
-                colors='white',linestyles=None, negative_linestyles='dashed', 
-                vmin=-1.0, vmax=1.0)
-    plt.title("Stream function")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.grid(color='gray', linestyle='--', linewidth=0.5)
-    plt.savefig(f"stommelgyre-streamfunction_{nx-3}.png")  
-    plt.close()
+            xc = model.xc[i]
+            u[j, i] = xg*xg + yc*yc
+            v[j, i] = xc*xc - yg*yg
 
     # Calculate total energy
     uc = kernels.UtoT(u)
     vc = kernels.VtoT(v)
     Etot = np.sum(0.5 * (uc * uc + vc * vc) * model.rac * model.maskC)
-    ( 
-        lambda_m,
-        sigma_m,
-        Edi_m,
-        Eri_m,
-        Edb_m,
-        Erb_m 
-    ) = model.spectra(u,v,decimals=2)
+
+    # Find the projection coefficients (using the model)
+    (
+        di_m,
+        db_m,
+        vi_m,
+        vb_m
+    ) = model.vectorProjection(u, v)
+    
+    # Calculate the energy associated with interior vorticity
+    interior_divE = -0.5 * di_m * di_m / model.n_eigenvalues
+    interior_divE[model.n_eigenvalues == 0.0] = 0.0
+
+     # Calculate the energy associated with boundary vorticity
+    boundary_divE = -0.5 * db_m * db_m / model.n_eigenvalues
+    boundary_divE[model.n_eigenvalues == 0.0] = 0.0
+
+    # Calculate the energy associated with interior vorticity
+    interior_rotE = -0.5 * vi_m * vi_m / model.d_eigenvalues
+
+     # Calculate the energy associated with boundary vorticity
+    boundary_rotE = -0.5 * vb_m * vb_m / model.d_eigenvalues
+
+    # Collapse degenerate modes
+    uniq_n_evals = np.unique(model.n_eigenvalues)
+    interior_divE_uniq = np.zeros_like(uniq_n_evals)
+    boundary_divE_uniq = np.zeros_like(uniq_n_evals)
+    k = 0
+    for ev in uniq_n_evals:
+        interior_divE_uniq[k] = np.sum(interior_divE[model.n_eigenvalues == ev])
+        boundary_divE_uniq[k] = np.sum(boundary_divE[model.n_eigenvalues == ev])
+        k+=1
+        
+    uniq_d_evals = np.unique(model.d_eigenvalues)
+    interior_rotE_uniq = np.zeros_like(uniq_d_evals)
+    boundary_rotE_uniq = np.zeros_like(uniq_d_evals)
+    k = 0
+    for ev in uniq_d_evals:
+        interior_rotE_uniq[k] = np.sum(interior_rotE[model.d_eigenvalues == ev])
+        boundary_rotE_uniq[k] = np.sum(boundary_rotE[model.d_eigenvalues == ev])
+        k+=1
 
     # Find the projection (using the exact modes)
     # To do this, we swap the model's modes for the exact modes
@@ -228,58 +241,90 @@ def main():
     exmodel.d_eigenvalues = -d_eigenvalues[0:n]
     exmodel.n_eigenmodes = n_eigenmodes[0:n,:,:]
     exmodel.n_eigenvalues = -n_eigenvalues[0:n]
-    ( 
-        lambda_m_exact,
-        sigma_m_exact,
-        Edi_m_exact,
-        Eri_m_exact,
-        Edb_m_exact,
-        Erb_m_exact 
-    ) = exmodel.spectra(u,v,decimals=2)
+    (
+        ex_di_m,
+        ex_db_m,
+        ex_vi_m,
+        ex_vb_m
+    ) = exmodel.vectorProjection(u, v)
+
+    # Calculate the energy associated with interior vorticity
+    ex_interior_divE = -0.5 * ex_di_m * ex_di_m / exmodel.n_eigenvalues
+    ex_interior_divE[exmodel.n_eigenvalues == 0.0] = 0.0
+    
+     # Calculate the energy associated with boundary vorticity
+    ex_boundary_divE = -0.5 * ex_db_m * ex_db_m / exmodel.n_eigenvalues
+    ex_boundary_divE[exmodel.n_eigenvalues == 0.0] = 0.0
+
+    # Calculate the energy associated with interior vorticity
+    ex_interior_rotE = -0.5 * ex_vi_m * ex_vi_m / exmodel.d_eigenvalues
+
+     # Calculate the energy associated with boundary vorticity
+    ex_boundary_rotE = -0.5 * ex_vb_m * ex_vb_m / exmodel.d_eigenvalues
+
+    # Collapse degenerate eigenmodes
+    uniq_nex_evals = np.unique(exmodel.n_eigenvalues)
+    ex_interior_divE_uniq = np.zeros_like(uniq_nex_evals)
+    ex_boundary_divE_uniq = np.zeros_like(uniq_nex_evals)
+    k = 0
+    for ev in uniq_nex_evals:
+        ex_interior_divE_uniq[k] = np.sum(ex_interior_divE[exmodel.n_eigenvalues == ev])
+        ex_boundary_divE_uniq[k] = np.sum(ex_boundary_divE[exmodel.n_eigenvalues == ev])
+        k+=1
+    
+    uniq_dex_evals = np.unique(exmodel.d_eigenvalues)
+    ex_interior_rotE_uniq = np.zeros_like(uniq_dex_evals)
+    ex_boundary_rotE_uniq = np.zeros_like(uniq_dex_evals)
+    k = 0
+    for ev in uniq_dex_evals:
+        ex_interior_rotE_uniq[k] = np.sum(ex_interior_rotE[exmodel.d_eigenvalues == ev])
+        ex_boundary_rotE_uniq[k] = np.sum(ex_boundary_rotE[exmodel.d_eigenvalues == ev])
+        k+=1
 
     # [0:-1] indexing for neumann modes is done to exlude the mode associated with eigenvalue of 0
-    plt.figure(figsize=(8.4,4.8))
-    plt.plot( np.abs(lambda_m_exact[0:-1]), Edb_m_exact[0:-1],'-o', label='Divergent (exact)', markersize=3, linewidth=1)
-    plt.plot( np.abs(sigma_m_exact), Erb_m_exact,'-o', label='Rotational (exact)', markersize=3, linewidth=1 )
-    plt.plot( np.abs(lambda_m[0:-1]), Edb_m[0:-1],'-x', label='Divergent (numerical)', markersize=4, linewidth=1 )
-    plt.plot( np.abs(sigma_m), Erb_m,'-x', label='Rotational (numerical)', markersize=4, linewidth=1 )
+    plt.figure()
+    plt.plot( np.abs(uniq_nex_evals[0:-1]), ex_boundary_divE_uniq[0:-1],'-o', label='Divergent (exact)', markersize=3, linewidth=1)
+    plt.plot( np.abs(uniq_dex_evals), ex_boundary_rotE_uniq,'-o', label='Rotational (exact)', markersize=3, linewidth=1 )
+    plt.plot( np.abs(uniq_n_evals[0:-1]), boundary_divE_uniq[0:-1],'-x', label='Divergent (numerical)', markersize=4, linewidth=1 )
+    plt.plot( np.abs(uniq_d_evals), boundary_rotE_uniq,'-x', label='Rotational (numerical)', markersize=4, linewidth=1 )
     plt.title("spectra (boundary contribution)")
     plt.xlabel("$\lambda$")
     plt.ylabel("energy")
     plt.yscale("log")
     plt.xscale("log")
-    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
-    plt.tight_layout()
-    plt.savefig(f"stommelgyre-boundary-energy_{nx-3}_{n_numerical_modes}.png")        
+    plt.grid()
+    plt.legend(loc="lower right")
+    plt.savefig(f"stommelgyre-boundary-energy_{nx-3}.png")        
 
-    plt.figure(figsize=(8.4,4.8))
-    plt.plot( np.abs(lambda_m_exact[0:-1]), Edi_m_exact[0:-1],'-o', label='Divergent (exact)', markersize=3, linewidth=1)
-    plt.plot( np.abs(sigma_m_exact), Eri_m_exact,'-o', label='Rotational (exact)', markersize=3, linewidth=1 )
-    plt.plot( np.abs(lambda_m[0:-1]), Edi_m[0:-1],'-x', label='Divergent (numerical)', markersize=4, linewidth=1 )
-    plt.plot( np.abs(sigma_m), Eri_m,'-x', label='Rotational (numerical)', markersize=4, linewidth=1 )
+
+    plt.figure()
+    plt.plot( np.abs(uniq_nex_evals[0:-1]), ex_interior_divE_uniq[0:-1],'-o', label='Divergent (exact)', markersize=3, linewidth=1)
+    plt.plot( np.abs(uniq_dex_evals), ex_interior_rotE_uniq,'-o', label='Rotational (exact)', markersize=3, linewidth=1 )
+    plt.plot( np.abs(uniq_n_evals[0:-1]), interior_divE_uniq[0:-1],'-x', label='Divergent (numerical)', markersize=4, linewidth=1 )
+    plt.plot( np.abs(uniq_d_evals), interior_rotE_uniq,'-x', label='Rotational (numerical)', markersize=4, linewidth=1 )
     plt.title("spectra (interior)")
     plt.xlabel("$\lambda$")
     plt.ylabel("energy")
     plt.yscale("log")
     plt.xscale("log")
-    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
-    plt.tight_layout()
-    plt.savefig(f"stommelgyre-interior-energy_{nx-3}_{n_numerical_modes}.png")
+    plt.grid()
+    plt.legend(loc="lower right")
+    plt.savefig(f"stommelgyre-interior-energy_{nx-3}.png")
 
-    csvfile = './stommelgyre-energy.csv'
+    csvfile = './stommel-gyre-energy.csv'
     with open(csvfile, 'a') as f:
         if( os.path.getsize(csvfile) == 0 ):
-            f.write('nx,ny,nmodes,"interior divergent energy (exact)","interior divergent energy (numerical)","boundary divergent energy (exact)","boundary divergent energy (numerical)","interior rotational energy (exact)","interior rotational energy (numerical)","boundary rotational energy (exact)","boundary rotational energy (numerical)","integrated total energy","eigenmode search runtime (s)" \n')
+            f.write('nx, ny, nmodes, "interior divergent energy (exact)", "interior divergent energy (numerical)", "boundary divergent energy (exact)", "boundary divergent energy (numerical)", "interior rotational energy (exact)", "interior rotational energy (numerical)", "boundary rotational energy (exact)", "boundary rotational energy (numerical)", "eigenmode search runtime (s)" \n')
        
-        ex_int_divE = np.sum(Edi_m_exact)
-        ex_int_rotE = np.sum(Eri_m_exact)
-        int_divE = np.sum(Edi_m)
-        int_rotE = np.sum(Eri_m)
-        ex_bound_divE = np.sum(Edb_m_exact)
-        ex_bound_rotE = np.sum(Erb_m_exact)
-        bound_divE = np.sum(Edb_m)
-        bound_rotE = np.sum(Erb_m)
-        f.write(f'{nx-3},{ny-3},{n_numerical_modes},{ex_int_divE},{int_divE},{ex_bound_divE},{bound_divE},{ex_int_rotE},{int_rotE},{ex_bound_rotE},{bound_rotE},{Etot},{runtime:0.4f}\n')
+        ex_int_divE = np.sum(ex_interior_divE)
+        ex_int_rotE = np.sum(ex_interior_rotE)
+        int_divE = np.sum(interior_divE)
+        int_rotE = np.sum(interior_rotE)
+        ex_bound_divE = np.sum(ex_boundary_divE)
+        ex_bound_rotE = np.sum(ex_boundary_rotE)
+        bound_divE = np.sum(boundary_divE)
+        bound_rotE = np.sum(boundary_rotE)
+        f.write(f'{nx-3}, {ny-3}, {n_numerical_modes}, {ex_int_divE}, {int_divE}, {ex_bound_divE}, {bound_divE}, {ex_int_rotE}, {int_rotE}, {ex_bound_rotE}, {bound_rotE}, {runtime:0.4f}\n')
 
 
 if __name__ == "__main__":

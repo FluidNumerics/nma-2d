@@ -14,7 +14,8 @@ import sys
 import time
 import argparse
 
-plt.style.use('dark_background')
+#plt.style.use('dark_background')
+plt.style.use('seaborn-v0_8-whitegrid')
 plt.switch_backend('agg')
 
 parser = argparse.ArgumentParser(
@@ -154,14 +155,14 @@ def main():
     # Find the eigenmodes (all on tracer points)
     if shift == 0.0 :
         deShift = 0.0
-        neShift = -1e-4
+        neShift = 1e-2
     else:
         deShift = shift
         neShift = shift
         
     model.findEigenmodes(nmodes=n_numerical_modes, tolerance=tolerance, deShift=deShift, neShift=neShift)
 
-    print(model.n_eigenvalues)
+    #print(model.n_eigenvalues)
     n_eigenvalues, n_eigenmodes = NeumannModes(model)
     d_eigenvalues, d_eigenmodes = DirichletModes(model)
 
@@ -173,19 +174,31 @@ def main():
     n=n_numerical_modes-1
     dirichlet_err = np.sqrt(np.sum(np.abs(d_eigenvalues[0:n]+model.d_eigenvalues[0:n])))
     neumann_err = np.sqrt(np.sum(np.abs(n_eigenvalues[0:n]+model.n_eigenvalues[0:n])))
-    print( f"Dirichlet e-value error : {dirichlet_err}")
-    print( f"Neumann e-value error : {neumann_err}")
+  #  print( f"Dirichlet e-value error : {dirichlet_err}")
+  #  print( f"Neumann e-value error : {neumann_err}")
 
     plt.figure()
-    plt.title("Eigenvalues")
+    plt.title(f"Eigenvalues {nx-3} x {nx-3}")
     plt.plot(np.abs(d_eigenvalues[0:n_numerical_modes-1]),'-o',label = 'dirichlet (exact)', markersize=3, linewidth=1 )
     plt.plot(np.abs(n_eigenvalues[0:n_numerical_modes-1]),'-o',label = 'neumann (exact)', markersize=3, linewidth=1 )
     plt.plot(np.abs(model.d_eigenvalues[0:n_numerical_modes-1]),'-x',label = 'dirichlet (numerical)', markersize=4, linewidth=1 )
     plt.plot(np.abs(model.n_eigenvalues[0:n_numerical_modes-1]),'-x',label = 'neumann (numerical)', markersize=4, linewidth=1 )
     plt.legend(loc='upper left')
     plt.grid(color='gray', linestyle='--', linewidth=0.5)
-    plt.savefig("eigenvalues.png")
+    plt.savefig(f"eigenvalues-{nx-3}_{n_numerical_modes}.png")
             
+    maxeval = np.max(np.abs(d_eigenvalues[0:n_numerical_modes-1]))
+
+    plt.figure()
+    plt.title(f"Eigenvalues {nx-3} x {nx-3}")
+    plt.plot(np.abs(d_eigenvalues[0:n_numerical_modes-1]),np.abs(model.d_eigenvalues[0:n_numerical_modes-1]),'o',label = 'dirichlet', markersize=3, linewidth=1 )
+    plt.plot(np.abs(n_eigenvalues[0:n_numerical_modes-1]),np.abs(model.n_eigenvalues[0:n_numerical_modes-1]),'x',label = 'neumann', markersize=3, linewidth=1 )
+    plt.plot([0,maxeval],[0,maxeval],'--',label='match', linewidth=1 )
+    plt.legend(loc='upper left')
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
+    plt.xlabel("Exact")
+    plt.ylabel("Numerical")
+    plt.savefig(f"evalcomp-{nx-3}_{n_numerical_modes}.png")
     
     plt.figure(figsize=(10,12))
     plt.subplots_adjust(hspace=1.0,wspace=0.5)
@@ -218,7 +231,7 @@ def main():
         ax.set_xlabel("x_c")
         ax.set_ylabel("y_c")
         plt.colorbar()
-    plt.savefig("exact-eigenmodes.png")
+    plt.savefig(f"exact-eigenmodes-{nx-3}_{n_numerical_modes}.png")
 
     plt.close()
 
@@ -253,111 +266,9 @@ def main():
         ax.set_xlabel("x_c")
         ax.set_ylabel("y_c")
         plt.colorbar()
-    plt.savefig("numerical-eigenmodes.png")
+    plt.savefig(f"numerical-eigenmodes-{nx-3}_{n_numerical_modes}.png")
     plt.close()
  
-    # for k in range(0,d_eigenmodes.shape[0]):
-    #     # Create a new figure
-    #     plt.figure()
-    #     sgrid = ma.masked_array( d_eigenmodes[k,:,:].squeeze(), mask=abs(model.maskZ - 1.0), dtype=np.float32 )
-    #     plt.pcolor(model.xg, model.yg, sgrid, vmin=-1.0, vmax=1.0)
-    #     plt.set_cmap("cividis")
-    #     # chart formatting
-    #     plt.title(f"Dirichlet mode : {k}")
-    #     plt.xlabel("x_g")
-    #     plt.ylabel("y_g")
-    #     plt.colorbar()
-    #     plt.savefig(f'dirichlet_{str(k).zfill(5)}.png')
-    #     plt.close()
-
-    # for k in range(0,n_eigenmodes.shape[0]):
-    #     # Create a new figure
-    #     plt.figure()
-    #     sgrid = ma.masked_array( n_eigenmodes[k,:,:].squeeze(), mask=abs(model.maskC - 1.0), dtype=np.float32 )
-    
-    #     plt.pcolor(model.xc, model.yc, sgrid, vmin=-1.0, vmax=1.0)
-    #     plt.set_cmap("cividis")
-    #     # chart formatting
-    #     plt.title(f"Neumann mode : {k}")
-    #     plt.xlabel("x_c")
-    #     plt.ylabel("y_c")
-    #     plt.colorbar()
-    #     plt.savefig(f'neumann_{str(k).zfill(5)}.png')
-    #     plt.close()
-
-
-
-# def main():
-#     # Get full path to examples/
-#     # From https://stackoverflow.com/questions/2632199/how-do-i-get-the-path-of-the-current-executed-file-in-python
-
-#     filename = inspect.getframeinfo(inspect.currentframe()).filename
-#     path     = os.path.dirname(os.path.abspath(filename))
-    
-#     model = nma.model()
-
-#     Lx = 1.0
-#     Ly = 1.0
-#     nX = 23
-#     nY = 23
-    
-#     dx = Lx/(nX-3)
-#     dy = Ly/(nY-3)
-    
-#     model.construct(dx,dy,nX,nX, np.float64)
-
-#     model.findEigenmodes( nmodes = nmodes, deShift=0, neShift=1e-7 ) 
-
-#     #print( model.eigenvalues )
-    
-#     plt.figure(figsize=(10,12))
-#     plt.subplots_adjust(hspace=1.0,wspace=0.5)
-#     plt.suptitle("Eigenmodes", fontsize=18, y=0.95)
-
-    # for k in range(0,10):
-    #     ei = k #nmodes-17+k
-    #     sgrid = ma.masked_array( model.d_eigenmodes[ei,:,:].squeeze(),
-    #                              mask=abs(model.maskZ - 1.0), 
-    #                              dtype=np.float32 )
-    #     # add a new subplot iteratively
-    #     ax = plt.subplot(4, 5, k+1)
-    
-    #     plt.pcolor(model.xg, model.yg, sgrid, vmin=-1.0, vmax=1.0)
-    #     plt.set_cmap("cividis")
-    #     # chart formatting
-    #     ax.set_title(f"d_{ei}")
-    #     #ax.set_xlabel("x_g")
-    #     #ax.set_ylabel("y_g")
-    #     plt.colorbar()
-        
-    # for k in range(0,10):
-    #     ei = k #nmodes-17+k
-    #     sgrid = ma.masked_array( model.n_eigenmodes[ei,:,:].squeeze(), mask=abs(model.maskC - 1.0), dtype=np.float32 )
-    #     # add a new subplot iteratively
-    #     ax = plt.subplot(4, 5, k+11)
-    
-    #     plt.pcolor(model.xc, model.yc, sgrid, vmin=-1.0, vmax=1.0)
-    #     plt.set_cmap("cividis")
-    #     # chart formatting
-    #     ax.set_title(f"n_{ei}")
-    #     #ax.set_xlabel("x_g")
-    #     #ax.set_ylabel("y_g")
-    #     plt.colorbar()
-
-
-    # #plt.show()
-    # plt.savefig("numerical-eigenmodes.png")
-    
-    # plt.figure()
-    # plt.title("IRAM calculated Eigenvalues")
-    # plt.plot(np.abs(model.d_eigenvalues[0:79]),label = 'dirichlet',marker='o')
-    # plt.plot(np.abs(model.n_eigenvalues[0:79]),label = 'neumann',marker='o')
-    # plt.legend(loc='upper left')
-    # #plt.show()
-    # plt.savefig("numerical-eigenvalues.png")
-
-
-
 
 if __name__=="__main__":
     main()

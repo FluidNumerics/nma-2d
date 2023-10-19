@@ -22,8 +22,7 @@ import sys
 import time
 import argparse
 
-#plt.style.use('dark_background')
-plt.style.use('seaborn-v0_8-whitegrid')
+plt.style.use('dark_background')
 plt.switch_backend('agg')
 
 parser = argparse.ArgumentParser(
@@ -171,37 +170,36 @@ def main():
 
     u = np.zeros((ny, nx), dtype=prec)
     v = np.zeros((ny, nx), dtype=prec)
-    psi = np.zeros((ny, nx), dtype=prec)
 
     # Fill in example u,v
     for j in range(0, model.yg.shape[0]):
         yg = model.yg[j]
+        yc = model.yc[j]
         for i in range(0, model.xg.shape[0]):
             xg = model.xg[i]
-            psi[j, i] = -np.pi * np.sin(np.pi * yg/Ly) * (1.0 - xg) * (np.exp(-xg / Lx) - 1.0)
+            xc = model.xc[i]
+            u[j, i] = xg*xg + yc*yc
+            v[j, i] = xc*xc - yg*yg
 
-    for j in range(0, model.yg.shape[0] - 1):
-        for i in range(0, model.xg.shape[0]):
-            u[j, i] = -(psi[j + 1, i] - psi[j, i]) / dy
-
-    for j in range(0, model.yg.shape[0]):
-        for i in range(0, model.xg.shape[0] - 1):
-            v[j, i] = (psi[j, i + 1] - psi[j, i]) / dx
+    # Calculate total energy
+    uc = kernels.UtoT(u)
+    vc = kernels.VtoT(v)
+    Etot = np.sum(0.5 * (uc * uc + vc * vc) * model.rac * model.maskC)
     
     # Plot the stream function
-    plt.figure()
-    plt.contour(model.xg, model.yg, psi, [0.0],
-                colors='white', linestyles='dotted', vmin=0.0, vmax=0.0)
-    plt.contour(model.xg, model.yg, psi, 
-                [-1.0, -0.8, -0.6, -0.4, -0.2, 0.2, 0.4, 0.6, 0.8, 1.0], 
-                colors='white',linestyles=None, negative_linestyles='dashed', 
-                vmin=-1.0, vmax=1.0)
-    plt.title("Stream function")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.grid(color='gray', linestyle='--', linewidth=0.5)
-    plt.savefig(f"stommelgyre-streamfunction_{nx-3}.png")  
-    plt.close()
+    # plt.figure()
+    # plt.contour(model.xg, model.yg, psi, [0.0],
+    #             colors='white', linestyles='dotted', vmin=0.0, vmax=0.0)
+    # plt.contour(model.xg, model.yg, psi, 
+    #             [-1.0, -0.8, -0.6, -0.4, -0.2, 0.2, 0.4, 0.6, 0.8, 1.0], 
+    #             colors='white',linestyles=None, negative_linestyles='dashed', 
+    #             vmin=-1.0, vmax=1.0)
+    # plt.title("Stream function")
+    # plt.xlabel("x")
+    # plt.ylabel("y")
+    # plt.grid(color='gray', linestyle='--', linewidth=0.5)
+    # plt.savefig(f"quadraticvelocities-streamfunction_{nx-3}.png")  
+    # plt.close()
 
     # Calculate total energy
     uc = kernels.UtoT(u)
@@ -250,7 +248,8 @@ def main():
     plt.xscale("log")
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
     plt.tight_layout()
-    plt.savefig(f"stommelgyre-boundary-energy_{nx-3}_{n_numerical_modes}.png")        
+    plt.legend(loc="lower right")
+    plt.savefig(f"quadraticvelocities-boundary-energy_{nx-3}_{n_numerical_modes}.png")        
 
     plt.figure(figsize=(8.4,4.8))
     plt.plot( np.abs(lambda_m_exact[0:-1]), Edi_m_exact[0:-1],'-o', label='Divergent (exact)', markersize=3, linewidth=1)
@@ -264,9 +263,10 @@ def main():
     plt.xscale("log")
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
     plt.tight_layout()
-    plt.savefig(f"stommelgyre-interior-energy_{nx-3}_{n_numerical_modes}.png")
+    plt.legend(loc="lower right")
+    plt.savefig(f"quadraticvelocities-interior-energy_{nx-3}_{n_numerical_modes}.png")
 
-    csvfile = './stommelgyre-energy.csv'
+    csvfile = './quadraticvelocities-energy.csv'
     with open(csvfile, 'a') as f:
         if( os.path.getsize(csvfile) == 0 ):
             f.write('nx,ny,nmodes,"interior divergent energy (exact)","interior divergent energy (numerical)","boundary divergent energy (exact)","boundary divergent energy (numerical)","interior rotational energy (exact)","interior rotational energy (numerical)","boundary rotational energy (exact)","boundary rotational energy (numerical)","integrated total energy","eigenmode search runtime (s)" \n')

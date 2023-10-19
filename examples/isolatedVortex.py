@@ -152,6 +152,8 @@ def NeumannModes( model ):
 
     return eigenvalues, eigenmodes
 
+
+
 def main():
     # Initialize the nma model
     model = nma.model()
@@ -173,12 +175,16 @@ def main():
     v = np.zeros((ny, nx), dtype=prec)
     psi = np.zeros((ny, nx), dtype=prec)
 
+    xc = Lx*0.5
+    yc = Lx*0.5
+    lv = Lx*0.06
     # Fill in example u,v
     for j in range(0, model.yg.shape[0]):
         yg = model.yg[j]
         for i in range(0, model.xg.shape[0]):
             xg = model.xg[i]
-            psi[j, i] = -np.pi * np.sin(np.pi * yg/Ly) * (1.0 - xg) * (np.exp(-xg / Lx) - 1.0)
+            r = (xg - xc)**2 + (yg - yc)**2
+            psi[j, i] = np.exp( -0.5*r / lv**2 )
 
     for j in range(0, model.yg.shape[0] - 1):
         for i in range(0, model.xg.shape[0]):
@@ -200,7 +206,7 @@ def main():
     plt.xlabel("x")
     plt.ylabel("y")
     plt.grid(color='gray', linestyle='--', linewidth=0.5)
-    plt.savefig(f"stommelgyre-streamfunction_{nx-3}.png")  
+    plt.savefig(f"isolatedvortex-streamfunction_{nx-3}.png")  
     plt.close()
 
     # Calculate total energy
@@ -250,7 +256,7 @@ def main():
     plt.xscale("log")
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
     plt.tight_layout()
-    plt.savefig(f"stommelgyre-boundary-energy_{nx-3}_{n_numerical_modes}.png")        
+    plt.savefig(f"isolatedvortex-boundary-energy_{nx-3}_{n_numerical_modes}.png")        
 
     plt.figure(figsize=(8.4,4.8))
     plt.plot( np.abs(lambda_m_exact[0:-1]), Edi_m_exact[0:-1],'-o', label='Divergent (exact)', markersize=3, linewidth=1)
@@ -264,9 +270,9 @@ def main():
     plt.xscale("log")
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
     plt.tight_layout()
-    plt.savefig(f"stommelgyre-interior-energy_{nx-3}_{n_numerical_modes}.png")
+    plt.savefig(f"isolatedvortex-interior-energy_{nx-3}_{n_numerical_modes}.png")
 
-    csvfile = './stommelgyre-energy.csv'
+    csvfile = './isolatedvortex-energy.csv'
     with open(csvfile, 'a') as f:
         if( os.path.getsize(csvfile) == 0 ):
             f.write('nx,ny,nmodes,"interior divergent energy (exact)","interior divergent energy (numerical)","boundary divergent energy (exact)","boundary divergent energy (numerical)","interior rotational energy (exact)","interior rotational energy (numerical)","boundary rotational energy (exact)","boundary rotational energy (numerical)","integrated total energy","eigenmode search runtime (s)" \n')

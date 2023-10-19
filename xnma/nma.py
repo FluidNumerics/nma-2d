@@ -132,7 +132,7 @@ class model:
         print(f"nDOF (C) : {self.ndofC}")
         print(f"nDOF (Z) : {self.ndofZ}")
 
-    def circularDemo(self, dx=1.0, dy=1.0, nx=500, ny=500):
+    def circularDemo(self, dx=1.0, dy=1.0, nx=500, ny=500, prec=np.float32):
         """
         Constructs a quadrilateral domain with uniform grid
         spacing. An additional mask is applied to create
@@ -146,6 +146,7 @@ class model:
         import numpy as np
         from numpy import ma
 
+        self.prec = prec
         self.dxc = np.ones((ny, nx)).astype(self.prec) * dx
         self.dxg = np.ones((ny, nx)).astype(self.prec) * dx
 
@@ -156,33 +157,65 @@ class model:
         self.rac = np.ones((ny, nx)).astype(self.prec) * dx * dy
 
         dxl = np.ones((nx)).astype(self.prec) * dx
-        self.xg = dxl.cumsum() - dx
+        self.xg = dxl.cumsum() - 2 * dx
         self.xc = self.xg + dx * 0.5
 
         dyl = np.ones((ny)).astype(self.prec) * dy
-        self.yg = dyl.cumsum() - dy
+        self.yg = dyl.cumsum() - 2 * dy
         self.yc = self.yg + dy * 0.5
 
-        self.maskZ = np.ones((ny, nx))
-        self.maskZ[:, 0] = 0.0
-        self.maskZ[:, nx - 1] = 0.0
-        self.maskZ[0, :] = 0.0
-        self.maskZ[ny - 1, :] = 0.0
-
+        # The stencil operations we use via numba
+        # enforce masking on the bounding quad boundaries
+        # Because of this, we set the maskC to zero on the
+        # boundaries
+        self.maskC = np.ones((ny, nx))
+        self.maskC[:, 0] = 0.0
+        self.maskC[:, nx - 1] = 0.0
+        self.maskC[:, nx - 2] = 0.0
+        self.maskC[0, :] = 0.0
+        self.maskC[ny - 1, :] = 0.0
+        self.maskC[ny - 2, :] = 0.0
         xc = self.xg[-1] * 0.5
         yc = self.yg[-1] * 0.5
-        for j in range(0, ny):
+        for j in range(0, ny - 1):
             y = self.yg[j]
-            for i in range(0, nx):
+            for i in range(0, nx - 1):
                 x = self.xg[i]
                 r = np.sqrt((x - xc) ** 2 + (y - yc) ** 2)
-
                 if r >= 0.9 * xc:
+                    self.maskC[j, i] = 0.0
+
+        self.ndofC = self.maskC.sum().astype(int)
+        self.hFacC = self.maskC
+
+        # A consistent z-mask is set, assuming
+        # z[j,i] is at the southwest corner of
+        # c[j,i]
+        self.maskZ = np.ones((ny, nx))
+        self.hFacW = np.ones((ny, nx))
+        self.hFacS = np.ones((ny, nx))
+        self.maskW = np.ones((ny, nx))
+        self.maskS = np.ones((ny, nx))
+        for j in range(0, ny - 1):
+            for i in range(0, nx - 1):
+                if self.maskC[j, i] == 0.0:
                     self.maskZ[j, i] = 0.0
+                    self.maskZ[j, i + 1] = 0.0
+                    self.maskZ[j + 1, i] = 0.0
+                    self.maskZ[j + 1, i + 1] = 0.0
+
+                    self.maskW[j, i] = 0.0
+                    self.maskW[j, i + 1] = 0.0
+                    self.maskS[j, i] = 0.0
+                    self.maskS[j + 1, i] = 0.0
 
         self.ndofZ = self.maskZ.sum().astype(int)
+        
+        print("Construction report")
+        print(f"nDOF (C) : {self.ndofC}")
+        print(f"nDOF (Z) : {self.ndofZ}")
 
-    def irregularHolesDemo(self, dx=1.0, dy=1.0, nx=500, ny=500):
+    def irregularHolesDemo(self, dx=1.0, dy=1.0, nx=500, ny=500, prec=np.float32):
         """
         Constructs a quadrilateral domain with uniform grid
         spacing. An additional mask is applied to create
@@ -197,6 +230,8 @@ class model:
         import numpy as np
         from numpy import ma
 
+
+        self.prec = prec
         self.dxc = np.ones((ny, nx)).astype(self.prec) * dx
         self.dxg = np.ones((ny, nx)).astype(self.prec) * dx
 
@@ -207,47 +242,86 @@ class model:
         self.rac = np.ones((ny, nx)).astype(self.prec) * dx * dy
 
         dxl = np.ones((nx)).astype(self.prec) * dx
-        self.xg = dxl.cumsum() - dx
+        self.xg = dxl.cumsum() - 2 * dx
         self.xc = self.xg + dx * 0.5
 
         dyl = np.ones((ny)).astype(self.prec) * dy
-        self.yg = dyl.cumsum() - dy
+        self.yg = dyl.cumsum() - 2 * dy
         self.yc = self.yg + dy * 0.5
 
-        self.maskZ = np.ones((ny, nx))
-        self.maskZ[:, 0] = 0.0
-        self.maskZ[:, nx - 1] = 0.0
-        self.maskZ[0, :] = 0.0
-        self.maskZ[ny - 1, :] = 0.0
+        # The stencil operations we use via numba
+        # enforce masking on the bounding quad boundaries
+        # Because of this, we set the maskC to zero on the
+        # boundaries
+        self.maskC = np.ones((ny, nx))
+        self.maskC[:, 0] = 0.0
+        self.maskC[:, nx - 1] = 0.0
+        self.maskC[:, nx - 2] = 0.0
+        self.maskC[0, :] = 0.0
+        self.maskC[ny - 1, :] = 0.0
+        self.maskC[ny - 2, :] = 0.0
+        
 
+        # Create holes in mesh
         xc = self.xg[-1] * 0.5
         yc = self.yg[-1] * 0.5
         for j in range(0, ny):
-            y = self.yg[j]
+            y = self.yc[j]
             for i in range(0, nx):
-                x = self.xg[i]
+                x = self.xc[i]
 
                 # Place a hole to the north-east with 10% domain width radius
                 r = np.sqrt((x - 1.7 * xc) ** 2 + (y - 1.7 * yc) ** 2)
                 if r <= 0.1 * xc:
-                    self.maskZ[j, i] = 0.0
+                    self.maskC[j, i] = 0.0
 
                 # Place a hole to the southwest with 15% domain width radius
                 r = np.sqrt((x - 0.2 * xc) ** 2 + (y - 0.3 * yc) ** 2)
                 if r <= 0.15 * xc:
-                    self.maskZ[j, i] = 0.0
+                    self.maskC[j, i] = 0.0
 
                 # Place a hole to the south-east with 40% domain width radius
                 r = np.sqrt((x - 1.3 * xc) ** 2 + (y - 0.4 * yc) ** 2)
                 if r <= 0.4 * xc:
-                    self.maskZ[j, i] = 0.0
+                    self.maskC[j, i] = 0.0
 
                 r = np.sqrt((x) ** 2 + (y - 2.0 * yc) ** 2)
                 f = np.exp(-r / (0.2 * xc * xc))
                 if f > 0.85:
+                    self.maskC[j, i] = 0.0
+
+        self.ndofC = self.maskC.sum().astype(int)
+        self.hFacC = self.maskC
+
+        # A consistent z-mask is set, assuming
+        # z[j,i] is at the southwest corner of
+        # c[j,i]
+        self.maskZ = np.ones((ny, nx))
+        self.hFacW = np.ones((ny, nx))
+        self.hFacS = np.ones((ny, nx))
+        self.maskW = np.ones((ny, nx))
+        self.maskS = np.ones((ny, nx))
+        for j in range(0, ny - 1):
+            for i in range(0, nx - 1):
+                if self.maskC[j, i] == 0.0:
                     self.maskZ[j, i] = 0.0
+                    self.maskZ[j, i + 1] = 0.0
+                    self.maskZ[j + 1, i] = 0.0
+                    self.maskZ[j + 1, i + 1] = 0.0
+
+                    self.maskW[j, i] = 0.0
+                    self.maskW[j, i + 1] = 0.0
+                    self.maskS[j, i] = 0.0
+                    self.maskS[j + 1, i] = 0.0
 
         self.ndofZ = self.maskZ.sum().astype(int)
+        #self.hFacW = self.maskW
+        #self.hFacS = self.maskS
+        
+        print("Construction report")
+        print(f"nDOF (C) : {self.ndofC}")
+        print(f"nDOF (Z) : {self.ndofZ}")
+
 
     def load(
         self,
@@ -999,23 +1073,82 @@ class model:
             # Subtract the boundary contribution from the divergence coefficients
             db_m[k] = -np.sum(divUEta * self.rac)
 
-        # proj_d = np.zeros((ny, nx), dtype=self.prec)
-        # proj_v = np.zeros((ny, nx), dtype=self.prec)
-        # rotEnergy = np.zeros((nmodes), dtype=self.prec)
-        # divEnergy = np.zeros((nmodes), dtype=self.prec)
-        # for k in range(0, nmodes):
-            
-           
-        #     # Rotational Energy (Dirichlet Modes)
-        #     rotEnergy[k] = -0.5 * v_m[k] * v_m[k] / self.d_eigenvalues[k]
-        #     # projection
-        #     proj_v += v_m[k] * np.squeeze(self.d_eigenmodes[k, :, :])/ self.d_eigenvalues[k]
-
-        #     # Divergent Energy (Neumann Modes)
-        #     # Only calculate energy for eigenmodes with non-zero eigenvalue
-        #     if np.abs(self.n_eigenvalues[k]) > zeroTol:
-        #         divEnergy[k] = -0.5 * d_m[k] * d_m[k] / self.n_eigenvalues[k]
-        #         # projection
-        #         proj_d += d_m[k] * np.squeeze(self.n_eigenmodes[k, :, :]) / self.n_eigenvalues[k]
-
         return di_m, db_m, vi_m, vb_m
+    
+    def spectra(self, u, v, decimals=8):
+        """Calculates the energy spectra for a velocity field (u,v).
+        
+        This routine calls the vectorProjection routine to obtain spectral
+        coefficients :
+
+            di_m - Divergent (Neumann) mode projection coefficients, interior component
+            db_m - Dirichlet (Neumann) mode projection coefficients, boundary component
+            vi_m - Vorticity (Dirichlet) mode projection coefficients, interior component
+            vb_m - Vorticity (Dirichlet) mode projection coefficients, interior component
+
+        The energy is broken down into four parts
+
+            1. Divergent interior
+            2. Rotational interior
+            3. Divergent boundary
+            4. Rotational boundary
+        
+        Each component is defined as
+
+            1. Edi_{m} = -0.5*di_m*di_m/\lambda_m 
+            2. Eri_{m} = -0.5*vi_m*vi_m/\sigma_m 
+            3. Edb_{m} = -(0.5*db_m*db_m + db_m*di_m)/\lambda_m 
+            4. Erb_{m} = -(0.5*vb_m*vb_m + vb_m*vi_m)/\sigma_m         
+
+        Once calculated, the spectra is constructed as four components
+
+            1. { \lambda_m, Edi_m }_{m=0}^{N}
+            2. { \sigma_m, Eri_m }_{m=0}^{N}
+            3. { \lambda_m, Edb_m }_{m=0}^{N}
+            4. { \sigma_m, Erb_m }_{m=0}^{N}
+ 
+        Energy associated with degenerate eigenmodes are accumulated to a single value. Eigenmodes are deemed
+        "degenerate" if their eigenvalues similar out to "decimals" decimal places. The eigenvalue chosen
+        for the purpose of the spectra is the average of the eigenvalues of the degenerate modes.
+        
+        """
+
+        # Calculate the spectral coefficients
+        di_m, db_m, vi_m, vb_m = self.vectorProjection(u,v)
+
+        # Calculate the energy associated with interior vorticity
+        Edi = -0.5 * di_m * di_m / self.n_eigenvalues
+        Edi[self.n_eigenvalues == 0.0] = 0.0
+
+        # Calculate the energy associated with boundary vorticity
+        Edb = -(0.5 * db_m * db_m + di_m*db_m) / self.n_eigenvalues
+        Edb[self.n_eigenvalues == 0.0] = 0.0
+
+        # Calculate the energy associated with interior vorticity
+        Eri = -0.5 * vi_m * vi_m / self.d_eigenvalues
+
+        # Calculate the energy associated with boundary vorticity
+        Erb = -(0.5 * vb_m * vb_m + vi_m*vb_m) / self.d_eigenvalues
+
+        n_evals_rounded = np.round(self.n_eigenvalues,decimals=decimals)
+        # Collapse degenerate modes
+        lambda_m = np.unique(n_evals_rounded)
+        Edi_m = np.zeros_like(lambda_m)
+        Edb_m = np.zeros_like(lambda_m)
+        k = 0
+        for ev in lambda_m:
+            Edi_m[k] = np.sum(Edi[n_evals_rounded == ev])
+            Edb_m[k] = np.sum(Edb[n_evals_rounded == ev])
+            k+=1
+
+        d_evals_rounded = np.round(self.d_eigenvalues,decimals=decimals) 
+        sigma_m = np.unique(d_evals_rounded)
+        Eri_m = np.zeros_like(sigma_m)
+        Erb_m = np.zeros_like(sigma_m)
+        k = 0
+        for ev in sigma_m:
+            Eri_m[k] = np.sum(Eri[d_evals_rounded == ev])
+            Erb_m[k] = np.sum(Erb[d_evals_rounded == ev])
+            k+=1
+
+        return lambda_m, sigma_m, Edi_m, Eri_m, Edb_m, Erb_m

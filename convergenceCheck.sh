@@ -5,6 +5,9 @@
 #SBATCH -o output
 #SBATCH -e output
 
+#EXAMPLES=("quadraticVelocities.py" "constantVelocity.py" "stommelGyre.py")
+EXAMPLES=("isolatedDipoleVortex.py" "constantVelocity.py" "quadraticVelocities.py" "isolatedVortex.py" "stommelGyre.py")
+
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
 __conda_setup="$('/home/joe/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
@@ -35,29 +38,28 @@ odir="checks_${timestamp}"
 
 mkdir -p ${odir}
 
-prec=("float64")
-iramtol=("1e-4")
+prec="float64"
+iramtol="1e-4"
 cgtol="1e-12"
 pctol="1e-2"
-nx=(13 23 33 43 53 63 73 83)
+nx=(13 23 33 43)
+# 53 63 73 83)
 div=(4 2 1) # Set up for 25%, 50% and 100% eigenmode calculation
+#div=(4)
+for e in "${EXAMPLES[@]}"; do
+  for d in "${div[@]}"; do
+    for n in "${nx[@]}"; do
 
-for d in "${div[@]}"; do
-  for p in "${prec[@]}"; do
-    for itol in "${iramtol[@]}"; do
-      for n in "${nx[@]}"; do
-
-        # Calculate the maximum number of eigenmodes, based on the number of wet vorticity points
-        m=$(( ((n-4)*(n-4) - 1)/d ))
+      # Calculate the maximum number of eigenmodes, based on the number of wet vorticity points
+      m=$(( ((n-4)*(n-4) - 1)/d ))
+    
+      echo "$p $n $m"
+      # run the example
+      python ./examples/$e --nx $n --ny $n --nmodes $m --tolerance $iramtol --precision $prec
       
-        echo "$p $n $m"
-
-        # run the example
-        python ./examples/constantVelocity.py --nx $n --ny $n --nmodes $m --tolerance $itol --precision $p
-
-
-    done
     done
   done
+  mkdir -p $odir/$e
+  mv *.png *.csv $odir/$e
 done
 
